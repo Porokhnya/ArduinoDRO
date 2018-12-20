@@ -50,11 +50,6 @@ MainScreen::MainScreen() : AbstractHALScreen()
   buttons->setTextFont(SCREEN_BIG_FONT);
   buttons->setButtonColors(BUTTON_COLORS);
 
-/*
-  xZeroButton = -1;
-  yZeroButton = -1;
-  zZeroButton = -1;
-*/  
   buttonsCreated = false;
   
 
@@ -92,7 +87,6 @@ void MainScreen::onEvent(Event event, void* param)
     {
       //DBGLN(F("EventScaleDataChanged"));
       ScaleData* scale = (ScaleData*) param;
-      //drawAxisData(&Screen,scale);
       addToDrawQueue(scale);
     }
  
