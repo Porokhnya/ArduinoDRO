@@ -127,7 +127,9 @@ void setup()
   
   MemInit();
 
+  #if defined(_DEBUG) || defined(DUMP_SCALE_DATA_TO_SERIAL)
   Serial.begin(SERIAL_SPEED);
+  #endif
 
   #ifdef USE_BUZZER
     Buzzer.begin();

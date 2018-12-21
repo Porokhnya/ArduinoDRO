@@ -4,11 +4,12 @@
 //--------------------------------------------------------------------------------------------------------------------------------------
 // ScaleData
 //--------------------------------------------------------------------------------------------------------------------------------------
-ScaleData::ScaleData(const char* _label, const char* _zeroButtonCaption, uint8_t _dataPin,  bool _active)
+ScaleData::ScaleData(const char* _label, const char* _zeroButtonCaption, char _axis, uint8_t _dataPin,  bool _active)
 {
    label = _label;
    zeroButtonCaption = _zeroButtonCaption;
    dataPin = _dataPin;
+   axis = _axis;
    rawData = NO_SCALE_DATA;
    zeroButtonIndex = -1;
    axisY = -1;
@@ -170,7 +171,7 @@ void ScalesClass::setup()
     // настраиваем пин строба
     pinMode(SCALE_CLOCK_PIN,OUTPUT);
 
-    ScaleData* xData = new ScaleData("06",X_SCALE_ZERO_CAPTION,X_SCALE_DATA_PIN,
+    ScaleData* xData = new ScaleData("06",X_SCALE_ZERO_CAPTION,'X',X_SCALE_DATA_PIN,
 
     #ifdef USE_X_SCALE
       true
@@ -182,7 +183,7 @@ void ScalesClass::setup()
     xData->setup();
     data.push_back(xData);
 
-    ScaleData* yData = new ScaleData("16",Y_SCALE_ZERO_CAPTION,Y_SCALE_DATA_PIN,
+    ScaleData* yData = new ScaleData("16",Y_SCALE_ZERO_CAPTION,'Y',Y_SCALE_DATA_PIN,
     #ifdef USE_Y_SCALE
       true
     #else
@@ -193,7 +194,7 @@ void ScalesClass::setup()
     yData->setup();
     data.push_back(yData);
 
-    ScaleData* zData = new ScaleData("26",Z_SCALE_ZERO_CAPTION,Z_SCALE_DATA_PIN,
+    ScaleData* zData = new ScaleData("26",Z_SCALE_ZERO_CAPTION,'Z',Z_SCALE_DATA_PIN,
 
     #ifdef USE_Z_SCALE
       true
@@ -233,6 +234,23 @@ void ScalesClass::update()
     {
       data[i]->endRead();
     }
+
+    #ifdef DUMP_SCALE_DATA_TO_SERIAL
+    
+      for(size_t i=0;i<cnt;i++)
+      {
+        if(i>0)
+          Serial.print(';');
+          
+        Serial.print(data[i]->getAxis());
+        if(data[i]->hasData())
+          Serial.print(data[i]->getRawData());
+        else
+          Serial.print('_');
+      }
+      Serial.println();
+          
+    #endif // DUMP_SCALE_DATA_TO_SERIAL
 
     updateTimer = millis();
   }

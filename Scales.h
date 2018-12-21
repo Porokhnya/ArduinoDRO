@@ -19,7 +19,7 @@ class ScaleData
 {
   public:
 
-    ScaleData(const char* label, const char* zeroButtonCaption, uint8_t dataPin, bool active);
+    ScaleData(const char* label, const char* zeroButtonCaption, char axis, uint8_t dataPin, bool active);
 
     void setup();
     //void update();
@@ -28,6 +28,9 @@ class ScaleData
 
     bool hasData() { return active && (rawData != NO_SCALE_DATA); }
     ScaleFormattedData getData();
+    int32_t getRawData() { return rawData; }
+
+    char getAxis() { return axis; }
     
     const char* getZeroButtonCaption() { return zeroButtonCaption; }
     void setZeroButtonIndex(int8_t idx) { zeroButtonIndex = idx; }
@@ -65,6 +68,7 @@ class ScaleData
     int32_t rawData, dataToRead;
     uint8_t dataPin;
     int8_t zeroButtonIndex;
+    char axis;
 
     int axisY;
     int axisHeight;
