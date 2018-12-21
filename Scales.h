@@ -5,7 +5,7 @@
 #include "CONFIG.h"
 #include <limits.h>
 //--------------------------------------------------------------------------------------------------------------------------------------
-#define NO_SCALE_DATA LONG_MIN
+#define NO_SCALE_DATA INT_MIN //int32_t(0xFFEFFFFF) // значение, которое выдаётся, когда в порту постоянно единица
 //--------------------------------------------------------------------------------------------------------------------------------------
 typedef struct
 {
@@ -13,14 +13,16 @@ typedef struct
   uint8_t Fract;
 } ScaleFormattedData;
 //--------------------------------------------------------------------------------------------------------------------------------------
+class ScalesClass;
+//--------------------------------------------------------------------------------------------------------------------------------------
 class ScaleData
 {
   public:
 
-    ScaleData(const char* label, const char* zeroButtonCaption, uint8_t dataPin, uint8_t clockPin, bool active);
+    ScaleData(const char* label, const char* zeroButtonCaption, uint8_t dataPin, bool active);
 
     void setup();
-    void update();
+    //void update();
     
     const char* getLabel() { return label; }
 
@@ -48,14 +50,20 @@ class ScaleData
     bool isActive() { return active; }
 
 
+    protected:
+
+      friend class ScalesClass;
+      void beginRead();
+      void readBit(int32_t bitNum, bool isLastBit);
+      void endRead();
+
   
   private:
   
     const char* label;
     const char* zeroButtonCaption;
-    int32_t rawData;
+    int32_t rawData, dataToRead;
     uint8_t dataPin;
-    uint8_t clockPin;
     int8_t zeroButtonIndex;
 
     int axisY;
@@ -78,6 +86,8 @@ private:
   ScaleDataVec data;
 
   uint32_t updateTimer;
+
+  void strobe();
   
 public:
 

@@ -4,12 +4,11 @@
 //--------------------------------------------------------------------------------------------------------------------------------------
 // ScaleData
 //--------------------------------------------------------------------------------------------------------------------------------------
-ScaleData::ScaleData(const char* _label, const char* _zeroButtonCaption, uint8_t _dataPin, uint8_t _clockPin, bool _active)
+ScaleData::ScaleData(const char* _label, const char* _zeroButtonCaption, uint8_t _dataPin,  bool _active)
 {
    label = _label;
    zeroButtonCaption = _zeroButtonCaption;
    dataPin = _dataPin;
-   clockPin = _clockPin;
    rawData = NO_SCALE_DATA;
    zeroButtonIndex = -1;
    axisY = -1;
@@ -25,7 +24,8 @@ ScaleData::ScaleData(const char* _label, const char* _zeroButtonCaption, uint8_t
 //--------------------------------------------------------------------------------------------------------------------------------------
 void ScaleData::setup()
 {
-  //TODO: ТУТ НАСТРАИВАЕМ ПИНЫ!! 
+  //ТУТ НАСТРАИВАЕМ ПИНЫ
+  pinMode(dataPin,INPUT);
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void ScaleData::zeroAxis()
@@ -48,20 +48,71 @@ void ScaleData::zeroAxis()
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void ScaleData::update()
+void ScaleData::beginRead()
+{
+if(!active)
+    return;
+      
+  dataToRead = 0;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void ScaleData::endRead()
 {
   if(!active)
     return;
-    
-  int32_t lastData = rawData;
-  
-  //TODO: ТУТ АКТУАЛЬНОЕ ОБНОВЛЕНИЕ ДАННЫХ!!!
-  rawData = random(-10000,100000);
 
-  // проверяем - если что-то изменилось - то постим событие
-  if(lastData != rawData)
+  bool hasChanges = (dataToRead != rawData);
+  rawData = dataToRead;
+  dataToRead = 0;
+
+  if(hasChanges)
   {
     Events.raise(this,EventScaleDataChanged,this);
+  }
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void ScaleData::readBit(int32_t bitNum, bool isLastBit)
+{
+  if(!active)
+    return;
+
+  int32_t readed = digitalRead(dataPin);
+  
+  if(!isLastBit)
+  {
+    dataToRead |= ((readed == BIT_IS_SET_LEVEL ? 1 : 0) << bitNum);
+  }
+  else
+  {    
+
+  /*
+    DBG("dataPin=");
+    DBG(dataPin);
+    DBG("; RAW value=");
+    Serial.print(dataToRead,HEX);
+    DBG("; mask=");
+    Serial.println(((int32_t)0x7FF << 21),HEX);
+   */
+     if(readed == BIT_IS_SET_LEVEL)
+     {
+        if(dataToRead == 0xFFFFF) // в шине вообще все единицы !!!
+        {
+          dataToRead = NO_SCALE_DATA;
+        }
+        else
+        {
+          dataToRead |= ((int32_t)0x7FF << 21);
+        }
+     }
+
+    /*
+    DBG("dataPin=");
+    DBG(dataPin);
+    DBG("; value=");
+    Serial.println(dataToRead,HEX);
+    */
+    
+    
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -73,7 +124,7 @@ ScaleFormattedData ScaleData::getData()
 
   if(hasData())
   {
-    //TODO: ТУТ ФОРМАТИРУЕМ ДАННЫЕ, ПОКА СДЕЛАНО ПРОСТО ОТ БАЛДЫ !!!
+    //TODO: ТУТ ФОРМАТИРУЕМ ДАННЫЕ, ПОКА СДЕЛАНО ПРОСТО ОТ БАЛДЫ, ТРЕБУЕТ ПРОВЕРКИ !!!
     int32_t temp = rawData;
     if(isZeroed)
     {
@@ -104,10 +155,22 @@ ScalesClass::~ScalesClass()
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
+void ScalesClass::strobe()
+{
+  digitalWrite(SCALE_CLOCK_PIN, STROBE_HIGH_LEVEL);
+
+  delayMicroseconds(STROBE_DURATION);
+  
+  digitalWrite(SCALE_CLOCK_PIN, !STROBE_HIGH_LEVEL);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
 void ScalesClass::setup()
 {
 
-    ScaleData* xData = new ScaleData("06",X_SCALE_ZERO_CAPTION,X_SCALE_DATA_PIN,X_SCALE_CLOCK_PIN,
+    // настраиваем пин строба
+    pinMode(SCALE_CLOCK_PIN,OUTPUT);
+
+    ScaleData* xData = new ScaleData("06",X_SCALE_ZERO_CAPTION,X_SCALE_DATA_PIN,
 
     #ifdef USE_X_SCALE
       true
@@ -119,7 +182,7 @@ void ScalesClass::setup()
     xData->setup();
     data.push_back(xData);
 
-    ScaleData* yData = new ScaleData("16",Y_SCALE_ZERO_CAPTION,Y_SCALE_DATA_PIN,Y_SCALE_CLOCK_PIN,
+    ScaleData* yData = new ScaleData("16",Y_SCALE_ZERO_CAPTION,Y_SCALE_DATA_PIN,
     #ifdef USE_Y_SCALE
       true
     #else
@@ -130,7 +193,7 @@ void ScalesClass::setup()
     yData->setup();
     data.push_back(yData);
 
-    ScaleData* zData = new ScaleData("26",Z_SCALE_ZERO_CAPTION,Z_SCALE_DATA_PIN,Z_SCALE_CLOCK_PIN,
+    ScaleData* zData = new ScaleData("26",Z_SCALE_ZERO_CAPTION,Z_SCALE_DATA_PIN,
 
     #ifdef USE_Z_SCALE
       true
@@ -148,9 +211,27 @@ void ScalesClass::update()
 {
   if(millis() - updateTimer > SCALES_UPDATE_INTERVAL)
   {
-    for(size_t i=0;i<data.size();i++)
+    size_t cnt = data.size();
+    
+    for(size_t i=0;i<cnt;i++)
     {
-      data[i]->update();
+      data[i]->beginRead();
+    }
+
+    for(int32_t bitNum=0;bitNum<21; bitNum++)
+    {
+        strobe();
+
+        for(size_t i=0;i<cnt;i++)
+        {
+          data[i]->readBit(bitNum, bitNum > 19);
+        } // for
+
+    } // for
+
+    for(size_t i=0;i<cnt;i++)
+    {
+      data[i]->endRead();
     }
 
     updateTimer = millis();
