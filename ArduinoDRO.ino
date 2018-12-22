@@ -148,8 +148,8 @@ void setup()
 
   DBGLN(F("Init screen..."));
   Screen.setup();
-  Screen.clearScreen();  
-  Screen.updateDisplay();  
+//  Screen.clearScreen();  
+//  Screen.updateDisplay();  
 
   Events.setup();
 
