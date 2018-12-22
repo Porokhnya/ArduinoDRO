@@ -19,7 +19,7 @@ class ScaleData
 {
   public:
 
-    ScaleData(const char* label, const char* zeroButtonCaption, char axis, uint8_t dataPin, bool active);
+    ScaleData(uint16_t eepromAddress, const char* label, const char* absButtonCaption, const char* relButtonCaption,const char* zeroButtonCaption, char axis, uint8_t dataPin, bool active);
 
     void setup();
     //void update();
@@ -32,14 +32,24 @@ class ScaleData
 
     char getAxis() { return axis; }
     
+    const char* getAbsButtonCaption() { return absButtonCaption; }
+    const char* getRelButtonCaption() { return relButtonCaption; }
     const char* getZeroButtonCaption() { return zeroButtonCaption; }
+    
+    void setAbsButtonIndex(int8_t idx) { absButtonIndex = idx; }
+    int8_t getAbsButtonIndex() { return absButtonIndex; }
+
     void setZeroButtonIndex(int8_t idx) { zeroButtonIndex = idx; }
-    int8_t getZeroButtonIndex() { return zeroButtonIndex; }
+    int8_t getZeroButtonIndex() { return zeroButtonIndex; }    
 
     int32_t getLastValueX() { return lastValueX; }
     void setLastValueX(int32_t val) { lastValueX = val; }
     
-    void zeroAxis();
+    void switchABS();
+    bool inABSMode() { return !isAbsFactorEnabled; }
+
+    void switchZERO();
+    bool inZEROMode() { return isZeroFactorEnabled; }
 
     void setY(int val) { axisY = val; }
     int getY() { return axisY; }
@@ -64,21 +74,31 @@ class ScaleData
   private:
   
     const char* label;
+    const char* absButtonCaption;
+    const char* relButtonCaption;
     const char* zeroButtonCaption;
+    char axis;
+    
+    int8_t absButtonIndex;
+    int8_t zeroButtonIndex;
+    
+    bool isZeroFactorEnabled;
+    int32_t zeroFactor;
+
+    bool isAbsFactorEnabled;
+    int32_t absFactor;
+    
     int32_t rawData, dataToRead;
     uint8_t dataPin;
-    int8_t zeroButtonIndex;
-    char axis;
 
     int axisY;
     int axisHeight;
     int dataXCoord;
-
-    bool isZeroed;
-    int32_t zeroFactor;
+    
     int32_t lastValueX;
 
     bool active;
+    uint16_t eepromAddress;
   
 };
 //--------------------------------------------------------------------------------------------------------------------------------------

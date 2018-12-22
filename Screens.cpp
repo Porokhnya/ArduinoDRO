@@ -157,12 +157,35 @@ void MainScreen::doUpdate(HalDC* hal)
       for(size_t i=0;i<total;i++)
       {
         ScaleData* dt = Scales.getData(i);
-        if(dt->isActive() && (dt->getZeroButtonIndex() == clicked_button))
+        if(dt->isActive())
         {
-          DBG(F("CLICKED: "));
-          DBGLN(dt->getZeroButtonCaption());
-          dt->zeroAxis();
-          drawAxisData(hal,dt);
+          if((dt->getAbsButtonIndex() == clicked_button)) // кнопка ABS
+          {
+            DBG(F("CLICKED: "));
+            DBGLN(dt->getAbsButtonCaption());
+            dt->switchABS();            
+            drawAxisData(hal,dt);
+
+            if(dt->inABSMode())
+            {
+              buttons->relabelButton(clicked_button,dt->getAbsButtonCaption(),true);
+            }
+            else
+            {
+              buttons->relabelButton(clicked_button,dt->getRelButtonCaption(),true);              
+            }
+          }
+          else
+          if((dt->getZeroButtonIndex() == clicked_button)) // кнопка ZERO
+          {
+            DBG(F("CLICKED: "));
+            DBGLN(dt->getZeroButtonCaption());
+            dt->switchZERO();
+            drawAxisData(hal,dt);
+          }
+          {
+            
+          }
 
           break;
         }
@@ -307,34 +330,47 @@ void MainScreen::drawGUI(HalDC* hal)
         hal->setColor(dt->isActive() ? AXIS_LABEL_COLOR : INACTIVE_AXIS_COLOR);
         hal->print(dt->getLabel(),curX,curY);
 
-        if(!buttonsCreated)
+        if(!buttonsCreated) // кнопки не созданы, создаём
         {
           dt->setY(curY);
           dt->setHeight(axisHeight);
           
-          // создаём кнопку оси
+          // создаём кнопки оси
+          const char* axisAbsButtonCaption = dt->getAbsButtonCaption();
           const char* axisZeroButtonCaption = dt->getZeroButtonCaption();
+          
           hal->setFont(SCREEN_BIG_FONT);
           int btnFontWidth = hal->getFontWidth(SCREEN_BIG_FONT);
 
-          // ширина кнопки
-          int btnWidth = hal->print(axisZeroButtonCaption,0,0,0,true)*btnFontWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
+          // ширина кнопки ABS
+          int absBtnWidth = hal->print(axisAbsButtonCaption,0,0,0,true)*btnFontWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
+          // ширина кнопки ZERO
+          int zeroBtnWidth = hal->print(axisZeroButtonCaption,0,0,0,true)*btnFontWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
 
           // текущий Y
           int btnY = curY + (axisHeight - MAIN_SCREEN_BUTTON_HEIGHT)/2;
           // текущий X
-          int btnX = screenWidth - btnWidth - MAIN_SCREEN_BUTTON_H_SPACING;
+          int btnX = screenWidth - (absBtnWidth + zeroBtnWidth + MAIN_SCREEN_BUTTON_H_SPACING + MAIN_SCREEN_BUTTON_RIGHT_SPACING);
+          int dataX = btnX;
 
-          int addedBtn = buttons->addButton(btnX,btnY,btnWidth,MAIN_SCREEN_BUTTON_HEIGHT,axisZeroButtonCaption);
-          dt->setZeroButtonIndex(addedBtn);
+          int absBtnIdx = buttons->addButton(btnX,btnY,absBtnWidth,MAIN_SCREEN_BUTTON_HEIGHT,axisAbsButtonCaption);
+          dt->setAbsButtonIndex(absBtnIdx);
 
-          if(!dt->isActive())
+          btnX += absBtnWidth + MAIN_SCREEN_BUTTON_H_SPACING;
+          int zeroBtnIdx = buttons->addButton(btnX,btnY,zeroBtnWidth,MAIN_SCREEN_BUTTON_HEIGHT,axisZeroButtonCaption);
+          dt->setZeroButtonIndex(zeroBtnIdx);
+
+          if(!dt->isActive()) // выключаем кнопки для неактивной оси
           {
-            buttons->disableButton(addedBtn);
-            buttons->setButtonBackColor(addedBtn,SCREEN_BACK_COLOR);
+            buttons->disableButton(absBtnIdx);
+            buttons->setButtonBackColor(absBtnIdx,SCREEN_BACK_COLOR);
+
+            buttons->disableButton(zeroBtnIdx);
+            buttons->setButtonBackColor(zeroBtnIdx,SCREEN_BACK_COLOR);
+            
           }
 
-          dt->setDataXCoord(btnX - MAIN_SCREEN_DATA_X_OFFSET - xyzFontWidth);
+          dt->setDataXCoord(dataX - MAIN_SCREEN_DATA_X_OFFSET - xyzFontWidth);
 
           hal->setFont(XYZFont); 
         
