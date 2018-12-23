@@ -152,11 +152,8 @@ void HalDC::initHAL()
       setBackColor(SCREEN_BACK_COLOR);
       setFont(SCREEN_SMALL_FONT);
 
-      #ifdef USE_TOUCH
       tftTouch->InitTouch(SCREEN_ORIENTATION);
       tftTouch->setPrecision(PREC_HI);  
-      #endif
-
             
 	 #else
     #error "Unsupported display!"
@@ -181,9 +178,7 @@ void HalDC::setup()
     #error "Unsupported display!"
   #endif
 
-  #ifdef USE_TOUCH
   tftTouch = new URTouch(TFT_TOUCH_CLK_PIN,TFT_TOUCH_CS_PIN,TFT_TOUCH_DIN_PIN,TFT_TOUCH_DOUT_PIN,TFT_TOUCH_IRQ_PIN);
-  #endif
 
  
   // инициализируем дисплей
@@ -589,12 +584,7 @@ MessageBoxScreen::MessageBoxScreen() : AbstractHALScreen()
   caption = NULL;
 
   buttons = new UTFT_Buttons_Rus(Screen.getUTFT(),
-
-  #ifdef USE_TOUCH
-    Screen.getTouch()
-  #else
-    NULL
-  #endif    
+   Screen.getTouch()
   , 2
   );
   buttons->setTextFont(SCREEN_BIG_FONT);
@@ -632,7 +622,6 @@ void MessageBoxScreen::doUpdate(HalDC* dc)
       dc->notifyAction(this);
    }
 
-  #ifdef USE_TOUCH
   
     int pressed_button = buttons->checkButtons(ButtonPressed);
     if(pressed_button != -1)
@@ -658,7 +647,6 @@ void MessageBoxScreen::doUpdate(HalDC* dc)
     
     } // if(pressed_button != -1)
   
-  #endif // USE_TOUCH
     
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -816,12 +804,7 @@ KeyboardScreen::KeyboardScreen() : AbstractHALScreen()
   isRusInput = true;
 
   buttons = new UTFT_Buttons_Rus(Screen.getUTFT(),
-
-  #ifdef USE_TOUCH
     Screen.getTouch()
-  #else
-    NULL
-  #endif    
   , 60
   );
   buttons->setTextFont(SCREEN_BIG_FONT);
@@ -881,8 +864,6 @@ void KeyboardScreen::doUpdate(HalDC* dc)
       cursorTimer = millis();
     }
     
-  #ifdef USE_TOUCH
-
     // проверяем на перемещение курсора
     URTouch* touch = dc->getTouch();
     
@@ -1009,8 +990,6 @@ void KeyboardScreen::doUpdate(HalDC* dc)
        } // else одна из кнопок клавиатуры
     
     } // if(pressed_button != -1)
-  
-  #endif // USE_TOUCH
   
     
 }

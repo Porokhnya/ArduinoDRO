@@ -7,6 +7,7 @@
 #include "CONFIG.h"
 #include "Settings.h"
 #include "Scales.h"
+#include "CoreButton.h"
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // главный экран
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -42,7 +43,7 @@ private:
     
     void drawGUI(HalDC* hal);
 
-    void drawAxisData(HalDC* hal, ScaleData* scale);
+    void drawAxisData(HalDC* hal, Scale* scale);
 
 
     bool buttonsCreated;
@@ -51,9 +52,40 @@ private:
     String noDataString;
     int noDataStringWidth, fullDigitPlacesWidth;
 
-    Vector<ScaleData*> wantsToDraw;
-    void addToDrawQueue(ScaleData* dt);
-    
+    Vector<Scale*> wantsToDraw;
+    void addToDrawQueue(Scale* dt);
+
+    Scale* getScale(AxisKind kind);
+
+    void switchABS(HalDC* hal,Scale* scale);
+    void switchZERO(HalDC* hal,Scale* scale);
+
+    // железные кнопки оси X
+    #if defined(USE_X_ABS_HARDWARE_BUTTON) && defined(USE_X_SCALE)
+    Button xAbsHardwareButton;
+    #endif
+
+    #if defined(USE_X_ZERO_HARDWARE_BUTTON) && defined(USE_X_SCALE)
+    Button xZeroHardwareButton;
+    #endif
+
+    // железные кнопки оси Y
+    #if defined(USE_Y_ABS_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
+    Button yAbsHardwareButton;
+    #endif
+
+    #if defined(USE_Y_ZERO_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
+    Button yZeroHardwareButton;
+    #endif
+
+    // железные кнопки оси Z
+    #if defined(USE_Z_ABS_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
+    Button zAbsHardwareButton;
+    #endif
+
+    #if defined(USE_Z_ZERO_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
+    Button zZeroHardwareButton;
+    #endif    
   
 };
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------

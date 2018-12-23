@@ -3,10 +3,11 @@
 #include "Events.h"
 #include "Settings.h"
 //--------------------------------------------------------------------------------------------------------------------------------------
-// ScaleData
+// Scale
 //--------------------------------------------------------------------------------------------------------------------------------------
-ScaleData::ScaleData(uint16_t _eepromAddress, const char* _label, const char* _absButtonCaption, const char* _relButtonCaption, const char* _zeroButtonCaption, char _axis, uint8_t _dataPin,  bool _active)
+Scale::Scale(AxisKind _kind, uint16_t _eepromAddress, const char* _label, const char* _absButtonCaption, const char* _relButtonCaption, const char* _zeroButtonCaption, char _axis, uint8_t _dataPin,  bool _active)
 {
+   kind = _kind;
    eepromAddress = _eepromAddress;
    label = _label;
    absButtonCaption = _absButtonCaption;
@@ -37,7 +38,7 @@ ScaleData::ScaleData(uint16_t _eepromAddress, const char* _label, const char* _a
    lastValueX = 5000;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void ScaleData::setup()
+void Scale::setup()
 {
   //ТУТ НАСТРАИВАЕМ ПИНЫ
   pinMode(dataPin,INPUT);
@@ -64,7 +65,7 @@ void ScaleData::setup()
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void ScaleData::switchZERO()
+void Scale::switchZERO()
 {
   if(!hasData())
     return;
@@ -101,15 +102,14 @@ void ScaleData::switchZERO()
       DBGLN(eepromAddress);
       
       Settings.write(eepromAddress,zeroFactor);
-
-      DBGLN(F("ZERO factor cleared!"));
       
     }
     
+    DBGLN(F("ZERO factor cleared!"));    
   }  
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void ScaleData::switchABS()
+void Scale::switchABS()
 {
   if(!hasData())
     return;
@@ -129,7 +129,7 @@ void ScaleData::switchABS()
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void ScaleData::beginRead()
+void Scale::beginRead()
 {
   if(!active)
     return;
@@ -137,7 +137,7 @@ void ScaleData::beginRead()
   dataToRead = 0;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void ScaleData::endRead()
+void Scale::endRead()
 {
   if(!active)
     return;
@@ -156,7 +156,7 @@ void ScaleData::endRead()
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void ScaleData::readBit(int32_t bitNum, bool isLastBit)
+void Scale::readBit(int32_t bitNum, bool isLastBit)
 {
   if(!active)
     return;
@@ -170,14 +170,15 @@ void ScaleData::readBit(int32_t bitNum, bool isLastBit)
   else
   {    
 
-  /*
+    /*
     DBG("dataPin=");
     DBG(dataPin);
     DBG("; RAW value=");
     Serial.print(dataToRead,HEX);
     DBG("; mask=");
     Serial.println(((int32_t)0x7FF << 21),HEX);
-   */
+    */
+   
      if(readed == BIT_IS_SET_LEVEL)
      {
         //TODO: Думаю, вот этой проверки делать не надо, поскольку ССЗБ, если датчик не подключил, да и подтяжка шины, по идее, должна быть к земле
@@ -212,7 +213,7 @@ void ScaleData::readBit(int32_t bitNum, bool isLastBit)
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-ScaleFormattedData ScaleData::getData()
+ScaleFormattedData Scale::getData()
 {
   ScaleFormattedData result;
   result.Value = NO_SCALE_DATA;
@@ -276,7 +277,7 @@ void ScalesClass::setup()
     // настраиваем пин строба
     pinMode(SCALE_CLOCK_PIN,OUTPUT);
 
-    ScaleData* xData = new ScaleData(ZERO_FACTOR_BASE_STORE_ADDRESS,
+    Scale* xData = new Scale(akX, ZERO_FACTOR_BASE_STORE_ADDRESS,
       #ifdef DISPLAY_COLON_AFTER_AXIS_NAME
       "06"
       #else
@@ -295,7 +296,7 @@ void ScalesClass::setup()
     xData->setup();
     data.push_back(xData);
 
-    ScaleData* yData = new ScaleData(ZERO_FACTOR_BASE_STORE_ADDRESS + 6,
+    Scale* yData = new Scale(akY, ZERO_FACTOR_BASE_STORE_ADDRESS + 6,
       #ifdef DISPLAY_COLON_AFTER_AXIS_NAME
       "16"
       #else
@@ -314,7 +315,7 @@ void ScalesClass::setup()
     yData->setup();
     data.push_back(yData);
 
-    ScaleData* zData = new ScaleData(ZERO_FACTOR_BASE_STORE_ADDRESS + 12,
+    Scale* zData = new Scale(akZ, ZERO_FACTOR_BASE_STORE_ADDRESS + 12,
       #ifdef DISPLAY_COLON_AFTER_AXIS_NAME
       "26"
       #else

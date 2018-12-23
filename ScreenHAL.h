@@ -17,10 +17,8 @@ extern int utf8_strlen(const String& str);
   #error "Unsupported display!"
 #endif
 
-#ifdef USE_TOUCH
 #include <URTouchCD.h>
 #include <URTouch.h>
-#endif
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #include "UTFT_Buttons_Rus.h"
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -116,10 +114,7 @@ public:
     UTFT* getUTFT() {return halDCDescriptor; }
   #endif
 
-#ifdef USE_TOUCH
-  URTouch* getTouch() { return tftTouch; }
-#endif
-  
+  URTouch* getTouch() { return tftTouch; }  
 
   void addScreen(AbstractHALScreen* screen);
 
@@ -170,9 +165,7 @@ private:
   int printTFT(const char* str,int x, int y, int deg=0, bool computeStringLengthOnly=false);
 #endif
 
-#ifdef USE_TOUCH
   URTouch* tftTouch;
-#endif
 
   AbstractHALScreen* requestedToActiveScreen;
   int requestedToActiveScreenIndex;

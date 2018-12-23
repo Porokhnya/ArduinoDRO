@@ -5,7 +5,7 @@
 #include "CONFIG.h"
 #include <limits.h>
 //--------------------------------------------------------------------------------------------------------------------------------------
-#define NO_SCALE_DATA INT_MIN //int32_t(0xFFEFFFFF) // значение, которое выдаётся, когда в порту постоянно единица
+#define NO_SCALE_DATA INT_MIN // значение, которое устанавливается, если с датчика нет данных
 //--------------------------------------------------------------------------------------------------------------------------------------
 typedef struct
 {
@@ -15,15 +15,24 @@ typedef struct
 //--------------------------------------------------------------------------------------------------------------------------------------
 class ScalesClass;
 //--------------------------------------------------------------------------------------------------------------------------------------
-class ScaleData
+typedef enum
+{
+  akX,
+  akY,
+  akZ
+  
+} AxisKind;
+//--------------------------------------------------------------------------------------------------------------------------------------
+class Scale
 {
   public:
 
-    ScaleData(uint16_t eepromAddress, const char* label, const char* absButtonCaption, const char* relButtonCaption,const char* zeroButtonCaption, char axis, uint8_t dataPin, bool active);
+    Scale(AxisKind kind, uint16_t eepromAddress, const char* label, const char* absButtonCaption, const char* relButtonCaption,const char* zeroButtonCaption, char axis, uint8_t dataPin, bool active);
 
     void setup();
-    //void update();
-    
+
+    AxisKind getKind() { return kind; }
+   
     const char* getLabel() { return label; }
 
     bool hasData() { return active && (rawData != NO_SCALE_DATA); }
@@ -99,15 +108,16 @@ class ScaleData
 
     bool active;
     uint16_t eepromAddress;
+    AxisKind kind;
   
 };
 //--------------------------------------------------------------------------------------------------------------------------------------
-typedef Vector<ScaleData*> ScaleDataVec;
+typedef Vector<Scale*> ScaleVec;
 //--------------------------------------------------------------------------------------------------------------------------------------
 class ScalesClass
 {
 private:
-  ScaleDataVec data;
+  ScaleVec data;
 
   uint32_t updateTimer;
 
@@ -118,8 +128,8 @@ public:
   ScalesClass();
   ~ScalesClass();
 
-  size_t getDataCount() { return data.size(); }
-  ScaleData* getData(size_t index) { return data[index]; }
+  size_t getCount() { return data.size(); }
+  Scale* getScale(size_t index) { return data[index]; }
 
   void setup();
   void update();
