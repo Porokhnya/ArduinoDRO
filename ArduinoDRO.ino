@@ -311,7 +311,7 @@ void loop()
 
   Screen.update();  
   Scales.update();
-  pollButtons();
+ // pollButtons();
 
  // проверяем, какой экран активен. Если активен главный экран - сбрасываем таймер ожидания. Иначе - проверяем, не истекло ли время ничегонеделанья.
   AbstractHALScreen* activeScreen = Screen.getActiveScreen();
@@ -357,7 +357,7 @@ void yield()
    #endif // USE_EXTERNAL_WATCHDOG
 
    Scales.update();
-   pollButtons();
+ //  pollButtons();
 
 
    nestedYield = false;
