@@ -4,6 +4,33 @@
 #include "Buzzer.h"
 #include "Scales.h"
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// железные кнопки оси X
+#if defined(USE_X_ABS_HARDWARE_BUTTON) && defined(USE_X_SCALE)
+Button xAbsHardwareButton;
+#endif
+
+#if defined(USE_X_ZERO_HARDWARE_BUTTON) && defined(USE_X_SCALE)
+Button xZeroHardwareButton;
+#endif
+
+// железные кнопки оси Y
+#if defined(USE_Y_ABS_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
+Button yAbsHardwareButton;
+#endif
+
+#if defined(USE_Y_ZERO_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
+Button yZeroHardwareButton;
+#endif
+
+// железные кнопки оси Z
+#if defined(USE_Z_ABS_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
+Button zAbsHardwareButton;
+#endif
+
+#if defined(USE_Z_ZERO_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
+Button zZeroHardwareButton;
+#endif    
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void drawScreenCaption(HalDC* hal, const String& str) // рисуем заголовок экрана
 {
   int screenWidth = hal->getScreenWidth();
@@ -89,26 +116,14 @@ void MainScreen::onEvent(Event event, void* param)
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void MainScreen::addToDrawQueue(Scale* dt)
 {
-  for(size_t i=0;i<wantsToDraw.size();i++)
+  size_t to = wantsToDraw.size();
+  for(size_t i=0;i<to;i++)
   {
     if(wantsToDraw[i] == dt)
       return;
   }
 
   wantsToDraw.push_back(dt);
-}
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Scale* MainScreen::getScale(AxisKind kind)
-{
-  size_t to = Scales.getCount();
-  for(size_t i=0;i<to;i++)
-  {
-    Scale* scale = Scales.getScale(i);
-    if(scale->getKind() == kind)
-      return scale;
-  }
-
-  return NULL;
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void MainScreen::doSetup(HalDC* hal)
@@ -133,36 +148,6 @@ void MainScreen::doSetup(HalDC* hal)
     noDataStringWidth = 2*xyzFontWidth + DIGIT_PLACES*xyzFontWidth + XYZ_FONT_DOT_WIDTH;
     fullDigitPlacesWidth = xyzFontWidth*DIGIT_PLACES;
 
-
-    // настраиваем железные кнопки оси X
-    #if defined(USE_X_ABS_HARDWARE_BUTTON) && defined(USE_X_SCALE)
-      xAbsHardwareButton.begin(X_ABS_HARDWARE_BUTTON_PIN,(X_ABS_HARDWARE_BUTTON_TRIGGERED_LEVEL == LOW));
-    #endif
-    
-    #if defined(USE_X_ZERO_HARDWARE_BUTTON) && defined(USE_X_SCALE)
-      xZeroHardwareButton.begin(X_ZERO_HARDWARE_BUTTON_PIN,(X_ZERO_HARDWARE_BUTTON_TRIGGERED_LEVEL == LOW));
-    #endif
-    
-
-    // настраиваем железные кнопки оси Y
-    #if defined(USE_Y_ABS_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
-      yAbsHardwareButton.begin(Y_ABS_HARDWARE_BUTTON_PIN,(Y_ABS_HARDWARE_BUTTON_TRIGGERED_LEVEL == LOW));
-    #endif
-    
-    #if defined(USE_Y_ZERO_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
-      yZeroHardwareButton.begin(Y_ZERO_HARDWARE_BUTTON_PIN,(Y_ZERO_HARDWARE_BUTTON_TRIGGERED_LEVEL == LOW));
-    #endif
-
-    // настраиваем железные кнопки оси Z
-    #if defined(USE_Z_ABS_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
-      zAbsHardwareButton.begin(Z_ABS_HARDWARE_BUTTON_PIN,(Z_ABS_HARDWARE_BUTTON_TRIGGERED_LEVEL == LOW));
-    #endif
-    
-    #if defined(USE_Z_ZERO_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
-      zZeroHardwareButton.begin(Z_ZERO_HARDWARE_BUTTON_PIN,(Z_ZERO_HARDWARE_BUTTON_TRIGGERED_LEVEL == LOW));
-    #endif
-
-
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void MainScreen::doUpdate(HalDC* hal)
@@ -170,7 +155,20 @@ void MainScreen::doUpdate(HalDC* hal)
   if(!isActive())
     return;
 
+  // переименовываем кнопки, если надо
+  size_t toRelabel = relabelQueue.size();
+  if(toRelabel)
+  {
+    for(size_t i=0;i<toRelabel;i++)
+    {
+      RelabelQueueItem* it = &(relabelQueue[i]);
+      buttons->relabelButton(it->btn,it->newLabel,true);
+    }
 
+    relabelQueue.empty();
+  }
+
+  // перерисовываем показания, если надо
   size_t sz = wantsToDraw.size();
   if(sz)
   {
@@ -181,7 +179,8 @@ void MainScreen::doUpdate(HalDC* hal)
     wantsToDraw.empty();
   }
 
-  
+
+    // проверяем экранные кнопки
     int clicked_button = buttons->checkButtons(ButtonPressed);
     if(clicked_button != -1)
     {
@@ -198,29 +197,15 @@ void MainScreen::doUpdate(HalDC* hal)
           {
             DBG(F("CLICKED: "));
             DBGLN(scale->getAbsButtonCaption());
-            int32_t oldData = scale->getRawData();
-            scale->switchABS();            
-            if(scale->getRawData() != oldData)
-              drawAxisData(hal,scale);
-
-              if(scale->inABSMode())
-              {
-                buttons->relabelButton(clicked_button,scale->getAbsButtonCaption(),true);
-              }
-              else
-              {
-                buttons->relabelButton(clicked_button,scale->getRelButtonCaption(),true);              
-              }
+            switchABS(scale);
+            
           }
           else
           if((scale->getZeroButtonIndex() == clicked_button)) // кнопка ZERO
           {
             DBG(F("CLICKED: "));
             DBGLN(scale->getZeroButtonCaption());
-            int32_t oldData = scale->getRawData();
-            scale->switchZERO();
-            if(scale->getRawData() != oldData)
-              drawAxisData(hal,scale);
+            switchZERO(scale);
           }
           {
             
@@ -231,113 +216,68 @@ void MainScreen::doUpdate(HalDC* hal)
       } // for
 
     } // if(clicked_button != -1)
-
-
-    // обновляем железные кнопки оси X
-    #if defined(USE_X_ABS_HARDWARE_BUTTON) && defined(USE_X_SCALE)
-      xAbsHardwareButton.update();
-      if(xAbsHardwareButton.isClicked())
-      {
-        DBGLN(F("X ABS hardware button clicked!"));
-        Scale* scale = getScale(akX);
-        switchABS(hal,scale);     
-      }
-    #endif    
-
-      #if defined(USE_X_ZERO_HARDWARE_BUTTON) && defined(USE_X_SCALE)
-      xZeroHardwareButton.update();
-      if(xZeroHardwareButton.isClicked())
-      {
-        DBGLN(F("X ZERO hardware button clicked!"));
-        Scale* scale = getScale(akX);
-        switchZERO(hal,scale);
-      }
-    #endif 
-
-    // обновляем железные кнопки оси Y
-    #if defined(USE_Y_ABS_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
-      yAbsHardwareButton.update();
-      if(yAbsHardwareButton.isClicked())
-      {
-        DBGLN(F("Y ABS hardware button clicked!"));
-        Scale* scale = getScale(akY);
-        switchABS(hal,scale);
-      }
-    #endif    
-
-      #if defined(USE_Y_ZERO_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
-      yZeroHardwareButton.update();
-      if(yZeroHardwareButton.isClicked())
-      {
-        DBGLN(F("Y ZERO hardware button clicked!"));
-        Scale* scale = getScale(akY);
-        switchZERO(hal,scale);
-      }
-    #endif 
-
-
-    // обновляем железные кнопки оси Z
-    #if defined(USE_Z_ABS_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
-      zAbsHardwareButton.update();
-      if(zAbsHardwareButton.isClicked())
-      {
-        DBGLN(F("Z ABS hardware button clicked!"));
-        Scale* scale = getScale(akZ);
-        switchABS(hal,scale);
-      }
-    #endif    
-
-      #if defined(USE_Z_ZERO_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
-      zZeroHardwareButton.update();
-      if(zZeroHardwareButton.isClicked())
-      {
-        DBGLN(F("Z ZERO hardware button clicked!"));
-        Scale* scale = getScale(akZ);
-        switchZERO(hal,scale);
-      }
-    #endif 
-    
     
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void MainScreen::switchZERO(HalDC* hal,Scale* scale)
+void MainScreen::switchZERO(Scale* scale)
 {
   if(!scale)
     return;
-
-  #ifdef USE_BUZZER
-    Buzzer.buzz();
-  #endif
   
-  int32_t oldData = scale->getRawData();
+  ScaleFormattedData oldData = scale->getData();
   scale->switchZERO();            
-  if(scale->getRawData() != oldData)
-    drawAxisData(hal,scale);    
-      
-}
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void MainScreen::switchABS(HalDC* hal,Scale* scale)
-{
-  if(!scale)
-    return;
-
-  #ifdef USE_BUZZER
-    Buzzer.buzz();
-  #endif
-  
-  int32_t oldData = scale->getRawData();
-  scale->switchABS();            
-  if(scale->getRawData() != oldData)
-    drawAxisData(hal,scale);
-
-  if(scale->inABSMode())
+  if(scale->getData() != oldData)
   {
-    buttons->relabelButton(scale->getAbsButtonIndex(),scale->getAbsButtonCaption(),true);
+    //DBGLN(F("AXIS DATA CHANGED!"));
+    addToDrawQueue(scale);
+  }
+
+  RelabelQueueItem qi;
+  qi.btn = scale->getZeroButtonIndex();
+  
+  if(scale->inZEROMode())
+  {
+    //buttons->relabelButton(scale->getZeroButtonIndex(),scale->getZeroButtonCaption(),true);
+    qi.newLabel = scale->getZeroButtonCaption();
   }
   else
   {
-    buttons->relabelButton(scale->getAbsButtonIndex(),scale->getRelButtonCaption(),true);              
-  }    
+    //buttons->relabelButton(scale->getZeroButtonIndex(),scale->getRstZeroButtonCaption(),true);              
+    qi.newLabel = scale->getRstZeroButtonCaption();
+  }     
+
+  relabelQueue.push_back(qi);
+      
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void MainScreen::switchABS(Scale* scale)
+{
+  if(!scale)
+    return;
+  
+  ScaleFormattedData oldData = scale->getData();
+  scale->switchABS();            
+  if(scale->getData() != oldData)
+  {
+    //DBGLN(F("AXIS DATA CHANGED!"));
+    addToDrawQueue(scale);
+  }
+
+  RelabelQueueItem qi;
+  qi.btn = scale->getAbsButtonIndex();
+
+  if(scale->inABSMode())
+  {
+    //buttons->relabelButton(scale->getAbsButtonIndex(),scale->getAbsButtonCaption(),true);
+    qi.newLabel = scale->getAbsButtonCaption();
+  }
+  else
+  {
+    //buttons->relabelButton(scale->getAbsButtonIndex(),scale->getRelButtonCaption(),true);              
+    qi.newLabel = scale->getRelButtonCaption();
+  }
+
+  relabelQueue.push_back(qi);
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
@@ -466,27 +406,27 @@ void MainScreen::drawGUI(HalDC* hal)
     // теперь рисуем подписи к осям
     for(size_t i=0;i<total;i++)
     {
-        Scale* dt = Scales.getScale(i);
+        Scale* scale = Scales.getScale(i);
 
-        hal->setColor(dt->isActive() ? AXIS_LABEL_COLOR : INACTIVE_AXIS_COLOR);
-        hal->print(dt->getLabel(),curX,curY);
+        hal->setColor(scale->isActive() ? AXIS_LABEL_COLOR : INACTIVE_AXIS_COLOR);
+        hal->print(scale->getLabel(),curX,curY);
 
         if(!buttonsCreated) // кнопки не созданы, создаём
         {
-          dt->setY(curY);
-          dt->setHeight(axisHeight);
+          scale->setY(curY);
+          scale->setHeight(axisHeight);
           
           // создаём кнопки оси
-          const char* axisAbsButtonCaption = dt->getAbsButtonCaption();
-          const char* axisZeroButtonCaption = dt->getZeroButtonCaption();
+          const char* axisAbsButtonCaption = scale->getAbsButtonCaption();
+          const char* axisZeroButtonCaption = scale->inZEROMode() ? scale->getZeroButtonCaption() : scale->getRstZeroButtonCaption();
           
           hal->setFont(SCREEN_BIG_FONT);
           int btnFontWidth = hal->getFontWidth(SCREEN_BIG_FONT);
 
-          // ширина кнопки ABS
-          int absBtnWidth = hal->print(axisAbsButtonCaption,0,0,0,true)*btnFontWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
-          // ширина кнопки ZERO
-          int zeroBtnWidth = hal->print(axisZeroButtonCaption,0,0,0,true)*btnFontWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
+          // ширина кнопки ABS, по максимальной длине возможных текстов на кнопке
+          int absBtnWidth = max(hal->print(scale->getAbsButtonCaption(),0,0,0,true),hal->print(scale->getRelButtonCaption(),0,0,0,true))*btnFontWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
+          // ширина кнопки ZERO, по максимальной длине возможных текстов на кнопке
+          int zeroBtnWidth = max(hal->print(scale->getZeroButtonCaption(),0,0,0,true),hal->print(scale->getRstZeroButtonCaption(),0,0,0,true))*btnFontWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
 
           // текущий Y
           int btnY = curY + (axisHeight - MAIN_SCREEN_BUTTON_HEIGHT)/2;
@@ -495,13 +435,13 @@ void MainScreen::drawGUI(HalDC* hal)
           int dataX = btnX;
 
           int absBtnIdx = buttons->addButton(btnX,btnY,absBtnWidth,MAIN_SCREEN_BUTTON_HEIGHT,axisAbsButtonCaption);
-          dt->setAbsButtonIndex(absBtnIdx);
+          scale->setAbsButtonIndex(absBtnIdx);
 
           btnX += absBtnWidth + MAIN_SCREEN_BUTTON_H_SPACING;
           int zeroBtnIdx = buttons->addButton(btnX,btnY,zeroBtnWidth,MAIN_SCREEN_BUTTON_HEIGHT,axisZeroButtonCaption);
-          dt->setZeroButtonIndex(zeroBtnIdx);
+          scale->setZeroButtonIndex(zeroBtnIdx);
 
-          if(!dt->isActive()) // выключаем кнопки для неактивной оси
+          if(!scale->isActive()) // выключаем кнопки для неактивной оси
           {
             buttons->disableButton(absBtnIdx);
             buttons->setButtonBackColor(absBtnIdx,SCREEN_BACK_COLOR);
@@ -511,17 +451,17 @@ void MainScreen::drawGUI(HalDC* hal)
             
           }
 
-          dt->setDataXCoord(dataX - MAIN_SCREEN_DATA_X_OFFSET - xyzFontWidth);
+          scale->setDataXCoord(dataX - MAIN_SCREEN_DATA_X_OFFSET - xyzFontWidth);
 
-          hal->setFont(XYZFont); 
+          hal->setFont(XYZFont);     
         
         } // if(!buttonsCreated)
 
         // теперь рисуем единицы измерения
-        hal->setColor(dt->isActive() ? AXIS_UNIT_COLOR : INACTIVE_AXIS_COLOR);
-        hal->print("7",dt->getDataXCoord(),curY); // пока тупо миллиметры отображаем
+        hal->setColor(scale->isActive() ? AXIS_UNIT_COLOR : INACTIVE_AXIS_COLOR);
+        hal->print("7",scale->getDataXCoord(),curY); // пока тупо миллиметры отображаем
 
-        addToDrawQueue(dt);
+        addToDrawQueue(scale);
 
         curY += axisHeight + MAIN_SCREEN_AXIS_V_SPACING;        
         

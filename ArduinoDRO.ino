@@ -8,6 +8,7 @@
 #include <malloc.h>
 #include "Settings.h"
 #include "Scales.h"
+#include "DueTimer.h"
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 uint32_t screenIdleTimer = 0;
 bool canCallYeld = false;
@@ -115,6 +116,93 @@ int freeRam()
     return (stack_ptr - heapend + mi.fordblks);  
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void pollButtons()
+{
+    bool isMainScreenActive = (Screen.getActiveScreen() == Main);
+  
+    // обновляем железные кнопки оси X
+    #if defined(USE_X_ABS_HARDWARE_BUTTON) && defined(USE_X_SCALE)
+      xAbsHardwareButton.update();
+      if(xAbsHardwareButton.isClicked() && isMainScreenActive)
+      {
+        #ifdef USE_BUZZER
+          Buzzer.buzz();
+        #endif        
+        
+        Scale* scale = Scales.getScale(akX);
+        Main->switchABS(scale);   
+      }
+    #endif    
+
+      #if defined(USE_X_ZERO_HARDWARE_BUTTON) && defined(USE_X_SCALE)
+      xZeroHardwareButton.update();
+      if(xZeroHardwareButton.isClicked() && isMainScreenActive)
+      {
+        #ifdef USE_BUZZER
+          Buzzer.buzz();
+        #endif        
+
+        Scale* scale = Scales.getScale(akX);
+        Main->switchZERO(scale);   
+      }      
+    #endif 
+
+    // обновляем железные кнопки оси Y
+    #if defined(USE_Y_ABS_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
+      yAbsHardwareButton.update();
+      if(yAbsHardwareButton.isClicked() && isMainScreenActive)
+      {
+        #ifdef USE_BUZZER
+          Buzzer.buzz();
+        #endif        
+        
+        Scale* scale = Scales.getScale(akY);
+        Main->switchABS(scale);   
+      }      
+    #endif    
+
+      #if defined(USE_Y_ZERO_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
+      yZeroHardwareButton.update();
+      if(yZeroHardwareButton.isClicked() && isMainScreenActive)
+      {
+        #ifdef USE_BUZZER
+          Buzzer.buzz();
+        #endif        
+        
+        Scale* scale = Scales.getScale(akY);
+        Main->switchZERO(scale);   
+      }         
+    #endif 
+
+
+    // обновляем железные кнопки оси Z
+    #if defined(USE_Z_ABS_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
+      zAbsHardwareButton.update();
+      if(zAbsHardwareButton.isClicked() && isMainScreenActive)
+      {
+        #ifdef USE_BUZZER
+          Buzzer.buzz();
+        #endif        
+        
+        Scale* scale = Scales.getScale(akZ);
+        Main->switchABS(scale);   
+      }         
+    #endif    
+
+      #if defined(USE_Z_ZERO_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
+      zZeroHardwareButton.update();
+      if(zZeroHardwareButton.isClicked() && isMainScreenActive)
+      {
+        #ifdef USE_BUZZER
+          Buzzer.buzz();
+        #endif        
+        
+        Scale* scale = Scales.getScale(akZ);
+        Main->switchZERO(scale);   
+      }          
+    #endif   
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void setup() 
 {
   
@@ -146,6 +234,44 @@ void setup()
   DBGLN(F("Init scales..."));
   Scales.setup();
 
+  DBGLN(F("Init buttons..."));
+
+  bool anyButtonFound = false;
+  
+    // настраиваем железные кнопки оси X
+    #if defined(USE_X_ABS_HARDWARE_BUTTON) && defined(USE_X_SCALE)
+      xAbsHardwareButton.begin(X_ABS_HARDWARE_BUTTON_PIN,(X_ABS_HARDWARE_BUTTON_TRIGGERED_LEVEL == LOW));
+      anyButtonFound = true;
+    #endif
+    
+    #if defined(USE_X_ZERO_HARDWARE_BUTTON) && defined(USE_X_SCALE)
+      xZeroHardwareButton.begin(X_ZERO_HARDWARE_BUTTON_PIN,(X_ZERO_HARDWARE_BUTTON_TRIGGERED_LEVEL == LOW));
+      anyButtonFound = true;
+    #endif
+    
+
+    // настраиваем железные кнопки оси Y
+    #if defined(USE_Y_ABS_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
+      yAbsHardwareButton.begin(Y_ABS_HARDWARE_BUTTON_PIN,(Y_ABS_HARDWARE_BUTTON_TRIGGERED_LEVEL == LOW));
+      anyButtonFound = true;
+    #endif
+    
+    #if defined(USE_Y_ZERO_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
+      yZeroHardwareButton.begin(Y_ZERO_HARDWARE_BUTTON_PIN,(Y_ZERO_HARDWARE_BUTTON_TRIGGERED_LEVEL == LOW));
+      anyButtonFound = true;
+    #endif
+
+    // настраиваем железные кнопки оси Z
+    #if defined(USE_Z_ABS_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
+      zAbsHardwareButton.begin(Z_ABS_HARDWARE_BUTTON_PIN,(Z_ABS_HARDWARE_BUTTON_TRIGGERED_LEVEL == LOW));
+      anyButtonFound = true;
+    #endif
+    
+    #if defined(USE_Z_ZERO_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
+      zZeroHardwareButton.begin(Z_ZERO_HARDWARE_BUTTON_PIN,(Z_ZERO_HARDWARE_BUTTON_TRIGGERED_LEVEL == LOW));
+      anyButtonFound = true;
+    #endif
+    
   DBGLN(F("Init screen..."));
   Screen.setup();
 
@@ -169,6 +295,11 @@ void setup()
 
   Screen.switchToScreen(Main);
 
+  if(anyButtonFound)
+  {
+    HARDWARE_BUTTONS_TIMER.attachInterrupt(pollButtons).setPeriod(20000).start();
+  }
+
   DBGLN(F("Inited."));
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -180,6 +311,7 @@ void loop()
 
   Screen.update();  
   Scales.update();
+  pollButtons();
 
  // проверяем, какой экран активен. Если активен главный экран - сбрасываем таймер ожидания. Иначе - проверяем, не истекло ли время ничегонеделанья.
   AbstractHALScreen* activeScreen = Screen.getActiveScreen();
@@ -225,6 +357,7 @@ void yield()
    #endif // USE_EXTERNAL_WATCHDOG
 
    Scales.update();
+   pollButtons();
 
 
    nestedYield = false;

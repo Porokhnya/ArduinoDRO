@@ -7,11 +7,15 @@
 //--------------------------------------------------------------------------------------------------------------------------------------
 #define NO_SCALE_DATA INT_MIN // значение, которое устанавливается, если с датчика нет данных
 //--------------------------------------------------------------------------------------------------------------------------------------
-typedef struct
+struct ScaleFormattedData
 {
   int32_t Value;
   uint8_t Fract;
-} ScaleFormattedData;
+
+  bool operator==(const ScaleFormattedData& rhs);
+  bool operator!=(const ScaleFormattedData& rhs);
+  
+};
 //--------------------------------------------------------------------------------------------------------------------------------------
 class ScalesClass;
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -27,9 +31,10 @@ class Scale
 {
   public:
 
-    Scale(AxisKind kind, uint16_t eepromAddress, const char* label, const char* absButtonCaption, const char* relButtonCaption,const char* zeroButtonCaption, char axis, uint8_t dataPin, bool active);
+    Scale(AxisKind kind, uint16_t eepromAddress, const char* label, const char* absButtonCaption, const char* relButtonCaption,const char* zeroButtonCaption, const char* rstZeroButtonCaption, char axis, uint8_t dataPin, bool active);
 
     void setup();
+    void update();
 
     AxisKind getKind() { return kind; }
    
@@ -44,6 +49,7 @@ class Scale
     const char* getAbsButtonCaption() { return absButtonCaption; }
     const char* getRelButtonCaption() { return relButtonCaption; }
     const char* getZeroButtonCaption() { return zeroButtonCaption; }
+    const char* getRstZeroButtonCaption() { return rstZeroButtonCaption; }
     
     void setAbsButtonIndex(int8_t idx) { absButtonIndex = idx; }
     int8_t getAbsButtonIndex() { return absButtonIndex; }
@@ -58,7 +64,7 @@ class Scale
     bool inABSMode() { return !isAbsFactorEnabled; }
 
     void switchZERO();
-    bool inZEROMode() { return isZeroFactorEnabled; }
+    bool inZEROMode() { return !isZeroFactorEnabled; }
 
     void setY(int val) { axisY = val; }
     int getY() { return axisY; }
@@ -86,6 +92,7 @@ class Scale
     const char* absButtonCaption;
     const char* relButtonCaption;
     const char* zeroButtonCaption;
+    const char* rstZeroButtonCaption;
     char axis;
     
     int8_t absButtonIndex;
@@ -109,6 +116,7 @@ class Scale
     bool active;
     uint16_t eepromAddress;
     AxisKind kind;
+    bool zeroFactorWantsToBeSaved;
   
 };
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -130,6 +138,8 @@ public:
 
   size_t getCount() { return data.size(); }
   Scale* getScale(size_t index) { return data[index]; }
+  Scale* getScale(AxisKind kind);
+  
 
   void setup();
   void update();

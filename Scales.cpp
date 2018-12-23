@@ -3,17 +3,42 @@
 #include "Events.h"
 #include "Settings.h"
 //--------------------------------------------------------------------------------------------------------------------------------------
+bool ScaleFormattedData::operator==(const ScaleFormattedData& rhs)
+{
+    if(this == &rhs)
+      return true;
+
+  int8_t signThis = Value < 0 ? -1 : 1;
+  int32_t rawThis = abs(Value)*100;
+  rawThis += Fract;
+  rawThis *= signThis;
+
+  int8_t signRhs = rhs.Value < 0 ? -1 : 1;
+  int32_t rawRhs = abs(rhs.Value)*100;
+  rawRhs += rhs.Fract;
+  rawRhs *= signRhs;
+
+  return(rawThis == rawRhs);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+bool ScaleFormattedData::operator!=(const ScaleFormattedData& rhs)
+{
+  return !(operator==(rhs));
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
 // Scale
 //--------------------------------------------------------------------------------------------------------------------------------------
-Scale::Scale(AxisKind _kind, uint16_t _eepromAddress, const char* _label, const char* _absButtonCaption, const char* _relButtonCaption, const char* _zeroButtonCaption, char _axis, uint8_t _dataPin,  bool _active)
+Scale::Scale(AxisKind _kind, uint16_t _eepromAddress, const char* _label, const char* _absButtonCaption, const char* _relButtonCaption, 
+const char* _zeroButtonCaption, const char* _rstZeroButtonCaption, char _axis, uint8_t _dataPin,  bool _active)
 {
    kind = _kind;
    eepromAddress = _eepromAddress;
+   
    label = _label;
    absButtonCaption = _absButtonCaption;
-
    relButtonCaption = _relButtonCaption;
    zeroButtonCaption = _zeroButtonCaption;
+   rstZeroButtonCaption = _rstZeroButtonCaption;
 
    zeroButtonIndex = -1;
    absButtonIndex = -1;
@@ -36,6 +61,7 @@ Scale::Scale(AxisKind _kind, uint16_t _eepromAddress, const char* _label, const 
    active = _active;
    
    lastValueX = 5000;
+   zeroFactorWantsToBeSaved = false;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void Scale::setup()
@@ -65,6 +91,18 @@ void Scale::setup()
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
+void Scale::update()
+{
+  if(zeroFactorWantsToBeSaved)
+  {
+    zeroFactorWantsToBeSaved = false;
+    
+    DBGLN(F("SAVE ZERO FACTOR !"));
+    
+    Settings.write(eepromAddress,zeroFactor);
+  }
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
 void Scale::switchZERO()
 {
   if(!hasData())
@@ -79,33 +117,23 @@ void Scale::switchZERO()
 
     if(zFactorChanged)
     {
-      DBG(F("Save ZERO factor for "));
-      DBG(axis);
-      DBG(F(" at address "));
-      DBGLN(eepromAddress);
-      
-      Settings.write(eepromAddress,zeroFactor);
+      //Тут проблема: нас могут вызвать из прерывания, поэтому НЕЛЬЗЯ здесь писать в EEPROM!
+      zeroFactorWantsToBeSaved = true; 
+   //   Settings.write(eepromAddress,zeroFactor);
     }
-    
-    DBG(F("ZERO factor set to: "));
-    DBGLN(zeroFactor);    
+        
   }
   else
   {
     if(zeroFactor != 0)
     {
       zeroFactor = 0;
-      
-      DBG(F("Save ZERO factor for "));
-      DBG(axis);
-      DBG(F(" at address "));
-      DBGLN(eepromAddress);
-      
-      Settings.write(eepromAddress,zeroFactor);
+      //Тут проблема: нас могут вызвать из прерывания, поэтому НЕЛЬЗЯ здесь писать в EEPROM!
+      zeroFactorWantsToBeSaved = true;        
+  //    Settings.write(eepromAddress,zeroFactor);
       
     }
     
-    DBGLN(F("ZERO factor cleared!"));    
   }  
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -119,12 +147,9 @@ void Scale::switchABS()
   if(isAbsFactorEnabled)
   {
     absFactor = rawData;
-    DBG(F("ABS factor set to: "));
-    DBGLN(absFactor);
   }
   else
   {
-    DBGLN(F("ABS factor cleared!"));
     absFactor = 0;
   }
 }
@@ -258,6 +283,19 @@ ScalesClass::~ScalesClass()
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
+Scale* ScalesClass::getScale(AxisKind kind)
+{
+  size_t to = getCount();
+  for(size_t i=0;i<to;i++)
+  {
+    Scale* scale = getScale(i);
+    if(scale->getKind() == kind)
+      return scale;
+  }
+
+  return NULL;
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void ScalesClass::strobe()
 {
   digitalWrite(SCALE_CLOCK_PIN, STROBE_HIGH_LEVEL);
@@ -284,7 +322,7 @@ void ScalesClass::setup()
       "0"
       #endif
       
-      ,X_SCALE_ABS_CAPTION,X_SCALE_REL_CAPTION,X_SCALE_ZERO_CAPTION,'X',X_SCALE_DATA_PIN,
+      ,X_SCALE_ABS_CAPTION,X_SCALE_REL_CAPTION,X_SCALE_ZERO_CAPTION,X_SCALE_RST_ZERO_CAPTION,'X',X_SCALE_DATA_PIN,
       
     #ifdef USE_X_SCALE
       true
@@ -303,7 +341,7 @@ void ScalesClass::setup()
       "1"
       #endif 
            
-      ,Y_SCALE_ABS_CAPTION,Y_SCALE_REL_CAPTION,Y_SCALE_ZERO_CAPTION,'Y',Y_SCALE_DATA_PIN,
+      ,Y_SCALE_ABS_CAPTION,Y_SCALE_REL_CAPTION,Y_SCALE_ZERO_CAPTION,Y_SCALE_RST_ZERO_CAPTION,'Y',Y_SCALE_DATA_PIN,
       
     #ifdef USE_Y_SCALE
       true
@@ -322,7 +360,7 @@ void ScalesClass::setup()
       "2"
       #endif
       
-      ,Z_SCALE_ABS_CAPTION,Z_SCALE_REL_CAPTION,Z_SCALE_ZERO_CAPTION,'Z',Z_SCALE_DATA_PIN,
+      ,Z_SCALE_ABS_CAPTION,Z_SCALE_REL_CAPTION,Z_SCALE_ZERO_CAPTION,Z_SCALE_RST_ZERO_CAPTION,'Z',Z_SCALE_DATA_PIN,
 
     #ifdef USE_Z_SCALE
       true
@@ -338,9 +376,15 @@ void ScalesClass::setup()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void ScalesClass::update()
 {
+
+    size_t cnt = data.size();    
+    for(size_t i=0;i<cnt;i++)
+    {
+      data[i]->update();
+    }
+
   if(millis() - updateTimer > SCALES_UPDATE_INTERVAL)
   {
-    size_t cnt = data.size();
     
     for(size_t i=0;i<cnt;i++)
     {

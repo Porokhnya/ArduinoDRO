@@ -11,6 +11,42 @@
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // главный экран
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// железные кнопки оси X
+#if defined(USE_X_ABS_HARDWARE_BUTTON) && defined(USE_X_SCALE)
+extern Button xAbsHardwareButton;
+#endif
+
+#if defined(USE_X_ZERO_HARDWARE_BUTTON) && defined(USE_X_SCALE)
+extern Button xZeroHardwareButton;
+#endif
+
+// железные кнопки оси Y
+#if defined(USE_Y_ABS_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
+extern Button yAbsHardwareButton;
+#endif
+
+#if defined(USE_Y_ZERO_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
+extern Button yZeroHardwareButton;
+#endif
+
+// железные кнопки оси Z
+#if defined(USE_Z_ABS_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
+extern Button zAbsHardwareButton;
+#endif
+
+#if defined(USE_Z_ZERO_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
+extern Button zZeroHardwareButton;
+#endif    
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#pragma pack(push,1)
+typedef struct
+{
+  int btn;
+  const char* newLabel;
+  
+} RelabelQueueItem;
+#pragma pack(pop)
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 class MainScreen : public AbstractHALScreen
 {
   public:
@@ -27,6 +63,8 @@ class MainScreen : public AbstractHALScreen
 
    virtual void onButtonPressed(int btn);
 
+    void switchABS(Scale* scale);
+    void switchZERO(Scale* scale);
 
 protected:
   
@@ -55,37 +93,7 @@ private:
     Vector<Scale*> wantsToDraw;
     void addToDrawQueue(Scale* dt);
 
-    Scale* getScale(AxisKind kind);
-
-    void switchABS(HalDC* hal,Scale* scale);
-    void switchZERO(HalDC* hal,Scale* scale);
-
-    // железные кнопки оси X
-    #if defined(USE_X_ABS_HARDWARE_BUTTON) && defined(USE_X_SCALE)
-    Button xAbsHardwareButton;
-    #endif
-
-    #if defined(USE_X_ZERO_HARDWARE_BUTTON) && defined(USE_X_SCALE)
-    Button xZeroHardwareButton;
-    #endif
-
-    // железные кнопки оси Y
-    #if defined(USE_Y_ABS_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
-    Button yAbsHardwareButton;
-    #endif
-
-    #if defined(USE_Y_ZERO_HARDWARE_BUTTON) && defined(USE_Y_SCALE)
-    Button yZeroHardwareButton;
-    #endif
-
-    // железные кнопки оси Z
-    #if defined(USE_Z_ABS_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
-    Button zAbsHardwareButton;
-    #endif
-
-    #if defined(USE_Z_ZERO_HARDWARE_BUTTON) && defined(USE_Z_SCALE)
-    Button zZeroHardwareButton;
-    #endif    
+    Vector<RelabelQueueItem> relabelQueue;
   
 };
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
