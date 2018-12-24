@@ -234,12 +234,6 @@ private:
       MessageBoxType boxType;
 
       void recreateButtons();
-
-      #ifdef USE_STEPPER_RUN_DIODE
-        uint32_t diodeTimer;
-        bool diodeTimerActive;
-        uint8_t diodeLevel;
-      #endif
   
 };
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------

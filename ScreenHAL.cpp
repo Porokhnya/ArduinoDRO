@@ -589,10 +589,6 @@ MessageBoxScreen::MessageBoxScreen() : AbstractHALScreen()
   );
   buttons->setTextFont(SCREEN_BIG_FONT);
   buttons->setButtonColors(BUTTON_COLORS);
-
-  #ifdef USE_STEPPER_RUN_DIODE
-    diodeTimerActive = false;
-  #endif
   
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -604,23 +600,7 @@ void MessageBoxScreen::doSetup(HalDC* dc)
 void MessageBoxScreen::doUpdate(HalDC* dc)
 {
     // тут обновляем внутреннее состояние
-
-  #ifdef USE_STEPPER_RUN_DIODE
-    if(diodeTimerActive)
-    {
-      if(millis() - diodeTimer > 500)
-      {
-        diodeLevel = !diodeLevel;
-        digitalWrite(STEPPER_RUN_DIODE_PIN,diodeLevel);
-        diodeTimer = millis();    
-      }
-    }
-  #endif
-
-   //if(boxType == mbHalt)
-   {
       dc->notifyAction(this);
-   }
 
   
     int pressed_button = buttons->checkButtons(ButtonPressed);
@@ -749,14 +729,6 @@ void MessageBoxScreen::halt(const char* _caption, Vector<const char*>& _lines)
   resultSubscriber = NULL;  
 
   Screen.switchToScreen(this);
-
-
-  #ifdef USE_STEPPER_RUN_DIODE
-    pinMode(STEPPER_RUN_DIODE_PIN,OUTPUT);
-    diodeLevel = !STEPPER_RUN_DIODE_ON;
-    diodeTimerActive = true;
-    diodeTimer = millis();    
-  #endif
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void MessageBoxScreen::show(const char* _caption, Vector<const char*>& _lines, AbstractHALScreen* okTarget, MessageBoxResultSubscriber* sub)

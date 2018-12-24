@@ -22,12 +22,7 @@ void EventsClass::raise(EventSender s, Event evt, void* param)
 //--------------------------------------------------------------------------------------------------------------------------------------
 void EventsClass::setup()
 {
-  /*
-  #ifdef USE_STEPPER_RUN_DIODE
-    pinMode(STEPPER_RUN_DIODE_PIN,OUTPUT);
-    digitalWrite(STEPPER_RUN_DIODE_PIN,!STEPPER_RUN_DIODE_ON);
-  #endif
-  */
+
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void EventsClass::subscribe(IEventSubscriber* s)

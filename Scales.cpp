@@ -62,6 +62,8 @@ const char* _zeroButtonCaption, const char* _rstZeroButtonCaption, char _axis, u
    
    lastValueX = 5000;
    zeroFactorWantsToBeSaved = false;
+
+   memset(FILLED_CHARS,-1,sizeof(FILLED_CHARS));
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void Scale::setup()
@@ -89,6 +91,10 @@ void Scale::setup()
     DBG(F("No saved ZERO factor for "));
     DBGLN(axis);
   }
+
+    #ifdef DEBUG_RANDOM_GENERATE_VALUES
+      startValue = -abs(DEBUG_RANDOM_GENERATE_MAX);
+    #endif  
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void Scale::update()
@@ -119,7 +125,6 @@ void Scale::switchZERO()
     {
       //Тут проблема: нас могут вызвать из прерывания, поэтому НЕЛЬЗЯ здесь писать в EEPROM!
       zeroFactorWantsToBeSaved = true; 
-   //   Settings.write(eepromAddress,zeroFactor);
     }
         
   }
@@ -130,8 +135,6 @@ void Scale::switchZERO()
       zeroFactor = 0;
       //Тут проблема: нас могут вызвать из прерывания, поэтому НЕЛЬЗЯ здесь писать в EEPROM!
       zeroFactorWantsToBeSaved = true;        
-  //    Settings.write(eepromAddress,zeroFactor);
-      
     }
     
   }  
@@ -168,7 +171,13 @@ void Scale::endRead()
     return;
 
   #ifdef DEBUG_RANDOM_GENERATE_VALUES
-    dataToRead = random(-100000,100000);
+  
+     startValue += DEBUG_RANDOM_GENERATE_STEP;
+     
+     if(startValue >= abs(DEBUG_RANDOM_GENERATE_MAX))
+      startValue = -abs(DEBUG_RANDOM_GENERATE_MAX);
+      
+    dataToRead = startValue;
   #endif
 
   bool hasChanges = (dataToRead != rawData);
@@ -307,11 +316,7 @@ void ScalesClass::strobe()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void ScalesClass::setup()
 {
-
-    #ifdef DEBUG_RANDOM_GENERATE_VALUES
-      randomSeed(analogRead(0));
-    #endif
-
+  
     // настраиваем пин строба
     pinMode(SCALE_CLOCK_PIN,OUTPUT);
 

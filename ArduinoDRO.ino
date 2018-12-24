@@ -297,7 +297,7 @@ void setup()
 
   if(anyButtonFound)
   {
-    HARDWARE_BUTTONS_TIMER.attachInterrupt(pollButtons).setPeriod(20000).start();
+    HARDWARE_BUTTONS_TIMER.attachInterrupt(pollButtons).setPeriod(CHECK_BUTTONS_INTERVAL).start();
   }
 
   DBGLN(F("Inited."));

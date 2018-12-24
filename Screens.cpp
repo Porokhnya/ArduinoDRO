@@ -228,7 +228,8 @@ void MainScreen::switchZERO(Scale* scale)
   scale->switchZERO();            
   if(scale->getData() != oldData)
   {
-    //DBGLN(F("AXIS DATA CHANGED!"));
+    // сбрасываем последние известные значения для оси
+    memset(scale->FILLED_CHARS,-1,sizeof(scale->FILLED_CHARS));
     addToDrawQueue(scale);
   }
 
@@ -259,7 +260,8 @@ void MainScreen::switchABS(Scale* scale)
   scale->switchABS();            
   if(scale->getData() != oldData)
   {
-    //DBGLN(F("AXIS DATA CHANGED!"));
+    // сбрасываем последние известные значения для оси
+    memset(scale->FILLED_CHARS,-1,sizeof(scale->FILLED_CHARS));
     addToDrawQueue(scale);
   }
 
@@ -282,6 +284,9 @@ void MainScreen::switchABS(Scale* scale)
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
 {
+  #if defined(_DEBUG) && defined(DEBUG_COMPUTE_DRAW_TIME)
+    uint32_t startTime = millis();
+  #endif
 
   FONT_TYPE* oldFont = hal->getFont();
   COLORTYPE oldColor = hal->getColor();
@@ -290,12 +295,14 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
   int axisY = scale->getY();
   int axisX = scale->getDataXCoord();
 
-
   hal->setBackColor(SCREEN_BACK_COLOR);
   hal->setFont(XYZFont);
 
   if(!scale->hasData())
   {
+
+    // сбрасываем последние известные значения для оси
+    memset(scale->FILLED_CHARS,-1,sizeof(scale->FILLED_CHARS));
 
     // нет данных с датчика
     hal->setColor(scale->isActive() ? AXIS_NO_DATA_COLOR : INACTIVE_AXIS_COLOR);
@@ -305,11 +312,7 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
 
     // теперь рисуем позиции до точки    
     hal->print(noDataString.c_str(),axisX,axisY); // строка вида "---" в используемом шрифте
-    axisX += fullDigitPlacesWidth;
-
-    // теперь точку
-    hal->print("4",axisX,axisY); // строка "." в используемом шрифте
-    axisX += XYZ_FONT_DOT_WIDTH;
+    axisX += fullDigitPlacesWidth + XYZ_FONT_DOT_WIDTH;
 
     // теперь две позиции после запятой
     hal->print("33",axisX,axisY); // строка "--" в используемом шрифте
@@ -318,47 +321,123 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
   } // if
   else
   {
-    
+
     // есть данные с датчика
-    hal->setColor(AXIS_VALUE_COLOR);
+    hal->setColor(AXIS_FRACT_VALUE_COLOR);
     hal->setFont(SevenSeg_XXXL_Num);
+    
     ScaleFormattedData scaleData = scale->getData();
 
     // выводим показания с датчика
-    // дробные
-    String strToDraw;
-    if(scaleData.Fract < 10)
-      strToDraw += '0';
-    strToDraw += scaleData.Fract;
-
-    // рисуем точку
-    int strWidth = strToDraw.length()*xxlFontWidth;
-    axisX -= (strWidth + XYZ_FONT_DOT_WIDTH);
+    int strWidth = 2*xxlFontWidth;
     
-    hal->setFont(XYZFont);
-    hal->print("4",axisX,axisY); // строка "." в используемом шрифте
-    hal->setFont(SevenSeg_XXXL_Num);
-    axisX += XYZ_FONT_DOT_WIDTH;
-        
-    hal->print(strToDraw.c_str(),axisX,axisY);    
-    axisX -= XYZ_FONT_DOT_WIDTH;
+    // дробные
+
+    axisX -= strWidth;
+    // сейчас по X мы стоим на первом разряде дробных. Надо проверить, не изменился ли он?
+    char lastDigit = scale->FILLED_CHARS[sizeof(scale->FILLED_CHARS)-2];
+    static char curDigit[2] = {0};
+    curDigit[0] = scaleData.Fract < 10 ? '0' : (scaleData.Fract/10) + '0'; 
+
+    if(curDigit[0] != lastDigit)
+    {
+      // запоминаем
+      scale->FILLED_CHARS[sizeof(scale->FILLED_CHARS)-2] = curDigit[0];
+
+      // перерисовываем
+      hal->print(curDigit,axisX,axisY);
+
+    }
+
+    // переходим на второй разряд дробных
+    axisX += xyzFontWidth;
+    lastDigit = scale->FILLED_CHARS[sizeof(scale->FILLED_CHARS)-1];
+    curDigit[0] = (scaleData.Fract%10) + '0';
+
+    if(curDigit[0] != lastDigit)
+    {
+      // запоминаем
+      scale->FILLED_CHARS[sizeof(scale->FILLED_CHARS)-1] = curDigit[0];
+
+      // перерисовываем
+      hal->print(curDigit,axisX,axisY);
+
+    }
+
+    // перемещаемся перед точкой
+    axisX -= (XYZ_FONT_DOT_WIDTH + xyzFontWidth);
 
 
     // целые
-    strToDraw = abs(scaleData.Value);
-    strWidth = strToDraw.length()*xxlFontWidth;
-    axisX -= strWidth;
- 
-    hal->print(strToDraw.c_str(),axisX,axisY);
+    hal->setColor(AXIS_WHOLE_VALUE_COLOR);
+    
+    // тут мы стоим за последним знаком целого значения.
+    // нам надо отобразить все значащие разряды, и знак "минус", если значение отрицательное.
+    // при этом разряд перерисовывается только тогда, когда он изменился с момента последней перерисовки.
+    // у нас есть DIGIT_PLACES мест под разряды, плюс одно место - под опциональный минус.
 
-    // теперь знак, если он нужен
+    int delimiter = 1;    
+    int digitPos = sizeof(scale->FILLED_CHARS)-3; // указатель на текущий разряд
+    uint32_t absVal = abs(scaleData.Value);
+
+    // определяем разрядность числа
+    int countDigits = scaleData.Value == 0 ? 1 : 0;
+    uint32_t valCpy = absVal;
+    while(valCpy != 0)
+    {
+      countDigits++;
+      valCpy /= 10;
+    }
+    
+    for(int z=0;z<DIGIT_PLACES;z++)
+    {
+      lastDigit = scale->FILLED_CHARS[digitPos];
+      curDigit[0] = (absVal/delimiter % 10) + '0';
+      delimiter *= 10;
+
+      // перемещаемся на позицию цифры
+      axisX -= xyzFontWidth;
+
+      // проверяем, изменилась ли цифра разряда?
+      if(scale->FILLED_CHARS[digitPos] != curDigit[0])
+      {
+        // запоминаем
+        scale->FILLED_CHARS[digitPos] = curDigit[0];
+
+        // перерисовываем
+        hal->print(curDigit,axisX,axisY);
+
+      }
+
+      digitPos--;
+
+      // тут проверяем - если разрядность числа закончилась - выходим из цикла
+      if(!--countDigits)
+        break;
+      
+    } // for
+
+    // прошли по всем цифрам, теперь смотрим, не надо ли нарисовать минус
     if(scaleData.Value < 0)
     {
-      hal->setFont(XYZFont);
       axisX -= xyzFontWidth;
-      hal->print("3",axisX,axisY); // строка "-" в используемом шрифте
-    } 
-    
+      
+      if(scale->FILLED_CHARS[digitPos] != '-')
+      {
+        scale->FILLED_CHARS[digitPos] = '-';
+
+        curDigit[0] = '3'; // символ "-" в используемом шрифте
+        hal->setFont(XYZFont);
+        hal->print(curDigit,axisX,axisY);
+      }
+    }
+
+    // обнуляем все разряды слева
+    while(--digitPos > 0)
+    {
+      scale->FILLED_CHARS[digitPos] = -1;
+    }
+
     // теперь выясняем - если длина последних данных была больше, чем текущих - то закрашиваем прямоугольник слева
     int32_t axisLastValueX = scale->getLastValueX();  
     scale->setLastValueX(axisX);
@@ -369,13 +448,24 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
       // прошлое значение было левее!
       hal->setColor(SCREEN_BACK_COLOR);
       hal->fillRect(axisLastValueX, axisY,axisX,axisY + scale->getHeight());
-    }
+    }    
+
     
   } // else
 
   hal->setFont(oldFont);
   hal->setColor(oldColor);
   hal->setBackColor(oldBackColor);
+
+  #if defined(_DEBUG) && defined(DEBUG_COMPUTE_DRAW_TIME)
+    uint32_t elapsed = millis() - startTime;
+
+    DBG(scale->getAxis());
+    DBG(F(" draw time (ms): "));
+    DBGLN(elapsed);
+  
+  #endif
+
   
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -461,6 +551,18 @@ void MainScreen::drawGUI(HalDC* hal)
         hal->setColor(scale->isActive() ? AXIS_UNIT_COLOR : INACTIVE_AXIS_COLOR);
         hal->print("7",scale->getDataXCoord(),curY); // пока тупо миллиметры отображаем
 
+        // рисуем точку
+          hal->setColor(AXIS_DOT_COLOR);          
+          hal->setFont(XYZFont);
+          hal->print(
+            #ifdef USE_COMMA_INSTEAD_OF_DOT 
+            "5"
+            #else
+            "4"
+            #endif
+            ,scale->getDataXCoord() - xyzFontWidth*2 - XYZ_FONT_DOT_WIDTH,curY); // строка "." в используемом шрифте
+
+        // добавляем в очередь на отрисовку
         addToDrawQueue(scale);
 
         curY += axisHeight + MAIN_SCREEN_AXIS_V_SPACING;        

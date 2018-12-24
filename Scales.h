@@ -77,6 +77,7 @@ class Scale
 
     bool isActive() { return active; }
 
+    char FILLED_CHARS[DIGIT_PLACES+3]; // последные известные значения разрядов
 
     protected:
 
@@ -117,6 +118,11 @@ class Scale
     uint16_t eepromAddress;
     AxisKind kind;
     bool zeroFactorWantsToBeSaved;
+
+    #ifdef DEBUG_RANDOM_GENERATE_VALUES
+      int32_t startValue;
+    #endif
+    
   
 };
 //--------------------------------------------------------------------------------------------------------------------------------------
