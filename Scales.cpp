@@ -393,7 +393,8 @@ void ScalesClass::update()
     
     for(size_t i=0;i<cnt;i++)
     {
-      data[i]->beginRead();
+      if(data[i]->isActive())
+        data[i]->beginRead();
     }
 
     for(int32_t bitNum=0;bitNum<21; bitNum++)
@@ -402,14 +403,18 @@ void ScalesClass::update()
 
         for(size_t i=0;i<cnt;i++)
         {
-          data[i]->readBit(bitNum, bitNum > 19);
+          if(data[i]->isActive())
+            data[i]->readBit(bitNum, bitNum > 19);
         } // for
+
+        delayMicroseconds(STROBE_DURATION);
 
     } // for
 
     for(size_t i=0;i<cnt;i++)
     {
-      data[i]->endRead();
+      if(data[i]->isActive())
+        data[i]->endRead();
     }
 
     #ifdef DUMP_SCALE_DATA_TO_SERIAL
