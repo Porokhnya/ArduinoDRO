@@ -480,6 +480,8 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
   else
   {
 
+    //TODO: ОТРИСОВКА РЕАЛИЗОВАНА ТОЛЬКО ДЛЯ МИЛЛИМЕТРОВ, ПОСКОЛЬКУ ПОКА ИСПОЛЬЗУЕТСЯ ФИКСИРОВАННАЯ ПОЗИЦИЯ ТОЧКИ - ДВА ЗНАКА ПОСЛЕ ЗАПЯТОЙ!
+
     // есть данные с датчика
     hal->setColor(AXIS_FRACT_VALUE_COLOR);
     hal->setFont(SevenSeg_XXXL_Num);
