@@ -27,6 +27,13 @@ typedef enum
   
 } AxisKind;
 //--------------------------------------------------------------------------------------------------------------------------------------
+typedef enum
+{
+  mmMM,
+  mmInch
+  
+} MeasureMode;
+//--------------------------------------------------------------------------------------------------------------------------------------
 class Scale
 {
   public:
@@ -41,7 +48,7 @@ class Scale
     const char* getLabel() { return label; }
 
     bool hasData() { return active && (rawData != NO_SCALE_DATA); }
-    ScaleFormattedData getData();
+    ScaleFormattedData getData(MeasureMode mode, uint8_t multiplier);
     int32_t getRawData() { return rawData; }
 
     char getAxis() { return axis; }

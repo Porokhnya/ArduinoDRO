@@ -247,7 +247,7 @@ void Scale::readBit(int32_t bitNum, bool isLastBit)
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-ScaleFormattedData Scale::getData()
+ScaleFormattedData Scale::getData(MeasureMode mode, uint8_t multiplier)
 {
   ScaleFormattedData result;
   result.Value = NO_SCALE_DATA;
@@ -255,7 +255,7 @@ ScaleFormattedData Scale::getData()
 
   if(hasData())
   {
-    int32_t temp = rawData;
+    int32_t temp = rawData;   
 
     if(isZeroFactorEnabled)
     {
@@ -266,6 +266,20 @@ ScaleFormattedData Scale::getData()
     {
       temp -= absFactor;
     }
+    
+
+    // переводим в инчи
+    //TODO: ПРОВЕРИТЬ!!!
+    if(mode == mmInch)
+    {
+      temp *= 100;
+      temp /= 2540;
+    }
+
+    // применяем мультипликатор
+    //TODO: ПРОВЕРИТЬ!!!
+    temp *= multiplier;
+        
 
     //TODO: ТУТ ФОРМАТИРУЕМ ДАННЫЕ, ПОКА СДЕЛАНО ПРОСТО ОТ БАЛДЫ, ТРЕБУЕТ ПРОВЕРКИ !!!
     result.Value = temp/100;

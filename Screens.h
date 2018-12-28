@@ -93,6 +93,23 @@ private:
     Vector<Scale*> wantsToDraw;
     void addToDrawQueue(Scale* dt);
 
+    int mmInchButton;
+    MeasureMode measureMode;
+    void redrawMeasureUnits(HalDC* hal);
+
+    uint8_t xMultiplier, yMultiplier, zMultiplier;
+    uint8_t getMultiplier(Scale* scale);
+    
+    #if defined(USE_X_RAD_DIA_BUTTON) && defined(USE_X_SCALE)
+    int xRadDiaButton;
+    #endif
+    #if defined(USE_Y_RAD_DIA_BUTTON) &&  defined(USE_Y_SCALE)
+    int yRadDiaButton;
+    #endif
+    #if defined(USE_Z_RAD_DIA_BUTTON)  && defined(USE_Z_SCALE)
+    int zRadDiaButton;
+    #endif
+
     Vector<RelabelQueueItem> relabelQueue;
   
 };

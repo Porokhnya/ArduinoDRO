@@ -66,14 +66,21 @@ MainScreen::MainScreen() : AbstractHALScreen()
   Main = this;
   buttons = new UTFT_Buttons_Rus(Screen.getUTFT(),
    Screen.getTouch()
-  ,10   
+  ,20   
   
   );
   buttons->setTextFont(SCREEN_BIG_FONT);
   buttons->setButtonColors(BUTTON_COLORS);
 
   buttonsCreated = false;
-  
+
+  #ifdef DEFAULT_IS_INCH
+  measureMode = mmInch;
+  #else
+  measureMode = mmMM;
+  #endif
+
+  xMultiplier = yMultiplier = zMultiplier = 1;
 
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -148,6 +155,27 @@ void MainScreen::doSetup(HalDC* hal)
     noDataStringWidth = 2*xyzFontWidth + DIGIT_PLACES*xyzFontWidth + XYZ_FONT_DOT_WIDTH;
     fullDigitPlacesWidth = xyzFontWidth*DIGIT_PLACES;
 
+    uint8_t stored;
+    if(Settings.read(RAD_DIA_BASE_STORE_ADDRESS,stored))
+    {
+      xMultiplier = stored;
+      DBG(F("xMultiplier stored = "));
+      DBGLN(xMultiplier);
+    }
+    if(Settings.read(RAD_DIA_BASE_STORE_ADDRESS+3,stored))
+    {
+      yMultiplier = stored;
+      DBG(F("yMultiplier stored = "));
+      DBGLN(yMultiplier);
+    }
+    if(Settings.read(RAD_DIA_BASE_STORE_ADDRESS+6,stored))
+    {
+      zMultiplier = stored;
+      DBG(F("zMultiplier stored = "));
+      DBGLN(zMultiplier);
+    }
+    
+
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void MainScreen::doUpdate(HalDC* hal)
@@ -187,36 +215,159 @@ void MainScreen::doUpdate(HalDC* hal)
       // сообщаем, что у нас нажата кнопка
       hal->notifyAction(this);
 
-      size_t total = Scales.getCount();
-      for(size_t i=0;i<total;i++)
+      if(mmInchButton == clicked_button)
       {
-        Scale* scale = Scales.getScale(i);
-        if(scale->isActive())
-        {
-          if((scale->getAbsButtonIndex() == clicked_button)) // кнопка ABS
-          {
-            DBG(F("CLICKED: "));
-            DBGLN(scale->getAbsButtonCaption());
-            switchABS(scale);
-            
-          }
-          else
-          if((scale->getZeroButtonIndex() == clicked_button)) // кнопка ZERO
-          {
-            DBG(F("CLICKED: "));
-            DBGLN(scale->getZeroButtonCaption());
-            switchZERO(scale);
-          }
-          {
-            
-          }
+        
+        DBGLN(F("SWITCH MM/INCH!"));
+        
+        if(measureMode == mmMM)
+          measureMode = mmInch;
+        else
+          measureMode = mmMM;
 
-          break;
+        buttons->relabelButton(mmInchButton,measureMode == mmMM ? INCH_CAPTION : MM_CAPTION, true);
+        redrawMeasureUnits(hal);
+
+        // тут просим все оси перерисоваться, поскольку мы поменяли единицы измерения
+        size_t total = Scales.getCount();
+        for(size_t i=0;i<total;i++)
+        {
+          Scale* scale = Scales.getScale(i);
+          //TODO: ТУТ ПОД ВОПРОСОМ - РАСКОММЕНТИРОВАТЬ ИЛИ НЕТ СЛЕДУЮЩУЮ СТРОЧКУ!!!
+          //////memset(scale->FILLED_CHARS,-1,sizeof(scale->FILLED_CHARS));
+          addToDrawQueue(scale);
         }
-      } // for
+
+        
+      } // if(mmInchButton == clicked_button)
+      #if defined(USE_X_RAD_DIA_BUTTON)  && defined(USE_X_SCALE)
+      else if(xRadDiaButton == clicked_button)
+      {
+        xMultiplier = xMultiplier == 1 ? 2 : 1;
+
+        DBG(F("X multiplier: "));
+        DBGLN(xMultiplier);
+
+        Settings.write(RAD_DIA_BASE_STORE_ADDRESS,xMultiplier);
+        buttons->relabelButton(xRadDiaButton,xMultiplier == 2 ? X_RAD_CAPTION : X_DIA_CAPTION, true);
+
+        // просим ось X перерисоваться
+        size_t total = Scales.getCount();
+        for(size_t i=0;i<total;i++)
+        {
+          Scale* scale = Scales.getScale(i);
+          if(scale->getKind() == akX)
+          {
+            addToDrawQueue(scale);
+            break;
+          }
+        }
+      }
+      #endif // USE_X_RAD_DIA_BUTTON
+      #if defined(USE_Y_RAD_DIA_BUTTON)  && defined(USE_Y_SCALE)
+      else if(yRadDiaButton == clicked_button)
+      {
+        yMultiplier = yMultiplier == 1 ? 2 : 1;
+
+        DBG(F("Y multiplier: "));
+        DBGLN(yMultiplier);
+
+        Settings.write(RAD_DIA_BASE_STORE_ADDRESS+3,yMultiplier);
+        buttons->relabelButton(yRadDiaButton,yMultiplier == 2 ? Y_RAD_CAPTION : Y_DIA_CAPTION, true);
+        
+        // просим ось Y перерисоваться
+        size_t total = Scales.getCount();
+        for(size_t i=0;i<total;i++)
+        {
+          Scale* scale = Scales.getScale(i);
+          if(scale->getKind() == akY)
+          {
+            addToDrawQueue(scale);
+            break;
+          }
+        }
+      }
+      #endif // USE_Y_RAD_DIA_BUTTON      
+      #if defined(USE_Z_RAD_DIA_BUTTON)  && defined(USE_Z_SCALE)
+      else if(zRadDiaButton == clicked_button)
+      {
+        zMultiplier = zMultiplier == 1 ? 2 : 1;
+
+        DBG(F("Z multiplier: "));
+        DBGLN(zMultiplier);
+
+        Settings.write(RAD_DIA_BASE_STORE_ADDRESS+6,zMultiplier);
+        buttons->relabelButton(zRadDiaButton,zMultiplier == 2 ? Z_RAD_CAPTION : Z_DIA_CAPTION, true);
+
+        // просим ось Z перерисоваться
+        size_t total = Scales.getCount();
+        for(size_t i=0;i<total;i++)
+        {
+          Scale* scale = Scales.getScale(i);
+          if(scale->getKind() == akZ)
+          {
+            addToDrawQueue(scale);
+            break;
+          }
+        }
+      }
+      #endif // USE_Z_RAD_DIA_BUTTON      
+      else
+      {
+          size_t total = Scales.getCount();
+          for(size_t i=0;i<total;i++)
+          {
+            Scale* scale = Scales.getScale(i);
+            if(scale->isActive())
+            {
+              if((scale->getAbsButtonIndex() == clicked_button)) // кнопка ABS
+              {
+                DBG(F("CLICKED: "));
+                DBGLN(scale->getAbsButtonCaption());
+                switchABS(scale);
+                
+              }
+              else
+              if((scale->getZeroButtonIndex() == clicked_button)) // кнопка ZERO
+              {
+                DBG(F("CLICKED: "));
+                DBGLN(scale->getZeroButtonCaption());
+                switchZERO(scale);
+              }
+              {
+                
+              }
+    
+              break;
+            }
+          } // for
+          
+      } // else
 
     } // if(clicked_button != -1)
     
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+uint8_t MainScreen::getMultiplier(Scale* scale)
+{
+  if(!scale)
+    return 1;
+    
+  AxisKind kind = scale->getKind();
+  switch(kind)
+  {
+    case akX:
+    return xMultiplier;
+    
+    case akY:
+    return yMultiplier;
+
+    case akZ:
+    return zMultiplier;
+    
+  }
+
+  return 1;
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void MainScreen::switchZERO(Scale* scale)
@@ -224,9 +375,9 @@ void MainScreen::switchZERO(Scale* scale)
   if(!scale)
     return;
   
-  ScaleFormattedData oldData = scale->getData();
+  ScaleFormattedData oldData = scale->getData(measureMode,getMultiplier(scale));
   scale->switchZERO();            
-  if(scale->getData() != oldData)
+  if(scale->getData(measureMode,getMultiplier(scale)) != oldData)
   {
     // сбрасываем последние известные значения для оси
     memset(scale->FILLED_CHARS,-1,sizeof(scale->FILLED_CHARS));
@@ -256,9 +407,9 @@ void MainScreen::switchABS(Scale* scale)
   if(!scale)
     return;
   
-  ScaleFormattedData oldData = scale->getData();
+  ScaleFormattedData oldData = scale->getData(measureMode,getMultiplier(scale));
   scale->switchABS();            
-  if(scale->getData() != oldData)
+  if(scale->getData(measureMode,getMultiplier(scale)) != oldData)
   {
     // сбрасываем последние известные значения для оси
     memset(scale->FILLED_CHARS,-1,sizeof(scale->FILLED_CHARS));
@@ -326,7 +477,7 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
     hal->setColor(AXIS_FRACT_VALUE_COLOR);
     hal->setFont(SevenSeg_XXXL_Num);
     
-    ScaleFormattedData scaleData = scale->getData();
+    ScaleFormattedData scaleData = scale->getData(measureMode, getMultiplier(scale));
 
     // выводим показания с датчика
     int strWidth = 2*xxlFontWidth;
@@ -469,6 +620,19 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
   
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void MainScreen::redrawMeasureUnits(HalDC* hal)
+{
+  size_t total = Scales.getCount();
+  
+  for(size_t i=0;i<total;i++)
+  {
+    Scale* scale = Scales.getScale(i);
+    // теперь рисуем единицы измерения
+    hal->setColor(scale->isActive() ? AXIS_UNIT_COLOR : INACTIVE_AXIS_COLOR);
+    hal->print(measureMode == mmMM ? "7" : "8",scale->getDataXCoord(),scale->getY()); // пока тупо миллиметры отображаем
+  }
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void MainScreen::drawGUI(HalDC* hal)
 {
   if(!isActive())
@@ -487,11 +651,45 @@ void MainScreen::drawGUI(HalDC* hal)
     uint16_t axisHeight = xyzFontHeight;
 
     // теперь выясняем, сколько высоты займут все оси
-    uint16_t totalHeight = axisHeight*total;
+    ////uint16_t totalHeight = axisHeight*total;
 
     // теперь выясняем, с какой позиции рисовать оси
     int curX = MAIN_SCREEN_LABELS_X_OFFSET;
-    int curY = (screenHeight - totalHeight - MAIN_SCREEN_AXIS_V_SPACING*(total-1)) / 2;
+    int curY = MAIN_SCREEN_LABELS_Y_OFFSET;//////(screenHeight - totalHeight - MAIN_SCREEN_AXIS_V_SPACING*(total-1)) / 2;
+
+
+    if(!buttonsCreated)
+    {
+        int brfWidth = hal->getFontWidth(BigRusFont);
+        // создаём кнопку mm/inch
+        int cbLeft = MAIN_SCREEN_LABELS_Y_OFFSET;
+        int mmInchTop = screenHeight - MAIN_SCREEN_LABELS_Y_OFFSET - MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT;
+        int mmInchButtonWidth = max(hal->print(MM_CAPTION,0,0,0,true),hal->print(INCH_CAPTION,0,0,0,true))*brfWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
+        mmInchButton = buttons->addButton(cbLeft,mmInchTop,mmInchButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,measureMode == mmMM ? INCH_CAPTION : MM_CAPTION);
+
+        cbLeft += mmInchButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
+
+    #if defined(USE_X_RAD_DIA_BUTTON) && defined(USE_X_SCALE)
+        int xRadDiaButtonWidth = max(hal->print(X_RAD_CAPTION,0,0,0,true),hal->print(X_DIA_CAPTION,0,0,0,true))*brfWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
+        xRadDiaButton = buttons->addButton(cbLeft,mmInchTop,xRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,xMultiplier == 1 ? X_DIA_CAPTION : X_RAD_CAPTION);
+        cbLeft += xRadDiaButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
+    #endif
+
+    #if defined(USE_Y_RAD_DIA_BUTTON) && defined(USE_Y_SCALE)
+        int yRadDiaButtonWidth = max(hal->print(Y_RAD_CAPTION,0,0,0,true),hal->print(Y_DIA_CAPTION,0,0,0,true))*brfWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
+        yRadDiaButton = buttons->addButton(cbLeft,mmInchTop,yRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,yMultiplier == 1 ? Y_DIA_CAPTION : Y_RAD_CAPTION);
+        cbLeft += yRadDiaButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
+    #endif
+
+    #if defined(USE_Z_RAD_DIA_BUTTON)  && defined(USE_Z_SCALE)
+        int zRadDiaButtonWidth = max(hal->print(Z_RAD_CAPTION,0,0,0,true),hal->print(Z_DIA_CAPTION,0,0,0,true))*brfWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
+        zRadDiaButton = buttons->addButton(cbLeft,mmInchTop,zRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,zMultiplier == 1 ? Z_DIA_CAPTION : Z_RAD_CAPTION);
+        cbLeft += zRadDiaButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
+    #endif
+        
+          
+    } // !buttonsCreated
+
 
     // теперь рисуем подписи к осям
     for(size_t i=0;i<total;i++)
@@ -503,6 +701,7 @@ void MainScreen::drawGUI(HalDC* hal)
 
         if(!buttonsCreated) // кнопки не созданы, создаём
         {
+          
           scale->setY(curY);
           scale->setHeight(axisHeight);
           
@@ -549,7 +748,13 @@ void MainScreen::drawGUI(HalDC* hal)
 
         // теперь рисуем единицы измерения
         hal->setColor(scale->isActive() ? AXIS_UNIT_COLOR : INACTIVE_AXIS_COLOR);
-        hal->print("7",scale->getDataXCoord(),curY); // пока тупо миллиметры отображаем
+        hal->print(
+          #ifdef DEFAULT_IS_INCH
+          "8"
+          #else
+          "7"
+          #endif
+          ,scale->getDataXCoord(),curY); // пока тупо миллиметры отображаем
 
         // рисуем точку
           hal->setColor(AXIS_DOT_COLOR);          
