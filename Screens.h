@@ -93,7 +93,10 @@ private:
     Vector<Scale*> wantsToDraw;
     void addToDrawQueue(Scale* dt);
 
+    #ifdef USE_MM_INCH_SWITCH
     int mmInchButton;
+    #endif
+    
     MeasureMode measureMode;
     void redrawMeasureUnits(HalDC* hal);
 

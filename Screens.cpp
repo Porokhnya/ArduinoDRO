@@ -215,6 +215,12 @@ void MainScreen::doUpdate(HalDC* hal)
       // сообщаем, что у нас нажата кнопка
       hal->notifyAction(this);
 
+      if(false)
+      {
+        
+      }
+      #ifdef USE_MM_INCH_SWITCH
+      else
       if(mmInchButton == clicked_button)
       {
         
@@ -239,7 +245,8 @@ void MainScreen::doUpdate(HalDC* hal)
         }
 
         
-      } // if(mmInchButton == clicked_button)
+      } // else if(mmInchButton == clicked_button)
+      #endif // USE_MM_INCH_SWITCH
       #if defined(USE_X_RAD_DIA_BUTTON)  && defined(USE_X_SCALE)
       else if(xRadDiaButton == clicked_button)
       {
@@ -660,30 +667,32 @@ void MainScreen::drawGUI(HalDC* hal)
 
     if(!buttonsCreated)
     {
-        int brfWidth = hal->getFontWidth(BigRusFont);
-        // создаём кнопку mm/inch
+        int brfWidth = hal->getFontWidth(BigRusFont);       
         int cbLeft = MAIN_SCREEN_LABELS_Y_OFFSET;
-        int mmInchTop = screenHeight - MAIN_SCREEN_LABELS_Y_OFFSET - MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT;
+        int cbTop = screenHeight - MAIN_SCREEN_LABELS_Y_OFFSET - MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT;
+        
+        #ifdef USE_MM_INCH_SWITCH
+        // создаём кнопку mm/inch
         int mmInchButtonWidth = max(hal->print(MM_CAPTION,0,0,0,true),hal->print(INCH_CAPTION,0,0,0,true))*brfWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
-        mmInchButton = buttons->addButton(cbLeft,mmInchTop,mmInchButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,measureMode == mmMM ? INCH_CAPTION : MM_CAPTION);
-
+        mmInchButton = buttons->addButton(cbLeft,cbTop,mmInchButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,measureMode == mmMM ? INCH_CAPTION : MM_CAPTION);
         cbLeft += mmInchButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
+        #endif // USE_MM_INCH_SWITCH
 
     #if defined(USE_X_RAD_DIA_BUTTON) && defined(USE_X_SCALE)
         int xRadDiaButtonWidth = max(hal->print(X_RAD_CAPTION,0,0,0,true),hal->print(X_DIA_CAPTION,0,0,0,true))*brfWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
-        xRadDiaButton = buttons->addButton(cbLeft,mmInchTop,xRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,xMultiplier == 1 ? X_DIA_CAPTION : X_RAD_CAPTION);
+        xRadDiaButton = buttons->addButton(cbLeft,cbTop,xRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,xMultiplier == 1 ? X_DIA_CAPTION : X_RAD_CAPTION);
         cbLeft += xRadDiaButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
     #endif
 
     #if defined(USE_Y_RAD_DIA_BUTTON) && defined(USE_Y_SCALE)
         int yRadDiaButtonWidth = max(hal->print(Y_RAD_CAPTION,0,0,0,true),hal->print(Y_DIA_CAPTION,0,0,0,true))*brfWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
-        yRadDiaButton = buttons->addButton(cbLeft,mmInchTop,yRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,yMultiplier == 1 ? Y_DIA_CAPTION : Y_RAD_CAPTION);
+        yRadDiaButton = buttons->addButton(cbLeft,cbTop,yRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,yMultiplier == 1 ? Y_DIA_CAPTION : Y_RAD_CAPTION);
         cbLeft += yRadDiaButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
     #endif
 
     #if defined(USE_Z_RAD_DIA_BUTTON)  && defined(USE_Z_SCALE)
         int zRadDiaButtonWidth = max(hal->print(Z_RAD_CAPTION,0,0,0,true),hal->print(Z_DIA_CAPTION,0,0,0,true))*brfWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
-        zRadDiaButton = buttons->addButton(cbLeft,mmInchTop,zRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,zMultiplier == 1 ? Z_DIA_CAPTION : Z_RAD_CAPTION);
+        zRadDiaButton = buttons->addButton(cbLeft,cbTop,zRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,zMultiplier == 1 ? Z_DIA_CAPTION : Z_RAD_CAPTION);
         cbLeft += zRadDiaButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
     #endif
         
