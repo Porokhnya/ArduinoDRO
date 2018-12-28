@@ -650,13 +650,13 @@ void MessageBoxScreen::doDraw(HalDC* hal)
   int lineLength = 0;
 
   // подложка под заголовок
-  hal->setColor(VGA_NAVY);
+  hal->setColor(MESSAGE_BOX_CAPTION_BACK_COLOR);
   hal->fillRect(0, 0, displayWidth-1, topOffset*2 + fontHeight);
   
   if(caption)
   {
-    hal->setBackColor(VGA_NAVY);
-    hal->setColor(VGA_WHITE);
+    hal->setBackColor(MESSAGE_BOX_CAPTION_BACK_COLOR);
+    hal->setColor(MESSAGE_BOX_CAPTION_FONT_COLOR);
     lineLength = hal->print(caption,curX,curY,0,true);
     curX = (displayWidth - lineLength*fontWidth)/2; 
     hal->print(caption,curX,curY);

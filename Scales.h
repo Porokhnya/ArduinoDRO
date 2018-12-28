@@ -10,7 +10,7 @@
 struct ScaleFormattedData
 {
   int32_t Value;
-  uint8_t Fract;
+  uint32_t Fract;
 
   bool operator==(const ScaleFormattedData& rhs);
   bool operator!=(const ScaleFormattedData& rhs);
@@ -84,7 +84,7 @@ class Scale
 
     bool isActive() { return active; }
 
-    char FILLED_CHARS[DIGIT_PLACES+3]; // последные известные значения разрядов
+    char FILLED_CHARS[DIGITS_PLACES+1]; // последные известные значения разрядов
 
     protected:
 
@@ -129,7 +129,6 @@ class Scale
     #ifdef DEBUG_RANDOM_GENERATE_VALUES
       int32_t startValue;
     #endif
-    
   
 };
 //--------------------------------------------------------------------------------------------------------------------------------------

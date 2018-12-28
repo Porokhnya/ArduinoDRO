@@ -8,17 +8,7 @@ bool ScaleFormattedData::operator==(const ScaleFormattedData& rhs)
     if(this == &rhs)
       return true;
 
-  int8_t signThis = Value < 0 ? -1 : 1;
-  int32_t rawThis = abs(Value)*100;
-  rawThis += Fract;
-  rawThis *= signThis;
-
-  int8_t signRhs = rhs.Value < 0 ? -1 : 1;
-  int32_t rawRhs = abs(rhs.Value)*100;
-  rawRhs += rhs.Fract;
-  rawRhs *= signRhs;
-
-  return(rawThis == rawRhs);
+  return (this->Value == rhs.Value) && (this->Fract == rhs.Fract);
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 bool ScaleFormattedData::operator!=(const ScaleFormattedData& rhs)
@@ -255,7 +245,11 @@ ScaleFormattedData Scale::getData(MeasureMode mode, uint8_t multiplier)
 
   if(hasData())
   {
-    int32_t temp = rawData;   
+    int32_t temp = rawData;
+
+    //TODO: УДАЛИТЬ !!!!
+    // if(getKind() == akX)
+    //  temp = 123456;
 
     if(isZeroFactorEnabled)
     {
@@ -266,24 +260,34 @@ ScaleFormattedData Scale::getData(MeasureMode mode, uint8_t multiplier)
     {
       temp -= absFactor;
     }
-    
 
-    // переводим в инчи
-    //TODO: ПРОВЕРИТЬ!!!
+    // с линейки у нас всё лежит в сотых долях миллиметра
+    float fTemp = temp;
+    fTemp /= 100.0;
+
     if(mode == mmInch)
     {
-      temp *= 100;
-      temp /= 2540;
+      // переводим в дюймы
+      fTemp /= 25.4;
     }
 
     // применяем мультипликатор
-    //TODO: ПРОВЕРИТЬ!!!
-    temp *= multiplier;
-        
+    fTemp *= multiplier;
 
-    //TODO: ТУТ ФОРМАТИРУЕМ ДАННЫЕ, ПОКА СДЕЛАНО ПРОСТО ОТ БАЛДЫ, ТРЕБУЕТ ПРОВЕРКИ !!!
-    result.Value = temp/100;
-    result.Fract = abs(temp%100);
+    // у нас результат вычисления лежит в сотых долях.
+    // его нужно перевести в требуемые доли
+
+    int32_t computed = fTemp;
+    result.Value = computed;
+
+    // теперь дробную часть, с нужным кол-вом знаков
+    uint32_t resolution = ( mode == mmMM ? pow(10,MM_RESOLUTION) : pow(10,INCH_RESOLUTION) );
+
+    fTemp -= computed;
+    fTemp *= resolution;
+
+    result.Fract  = abs(fTemp);    
+    
   }
   
   return result;
@@ -396,7 +400,7 @@ void ScalesClass::setup()
 void ScalesClass::update()
 {
 
-    size_t cnt = data.size();    
+    size_t cnt = data.size();
     for(size_t i=0;i<cnt;i++)
     {
       data[i]->update();

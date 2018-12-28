@@ -31,6 +31,7 @@ Button zAbsHardwareButton;
 Button zZeroHardwareButton;
 #endif    
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+/*
 void drawScreenCaption(HalDC* hal, const String& str) // рисуем заголовок экрана
 {
   int screenWidth = hal->getScreenWidth();
@@ -56,6 +57,7 @@ void drawScreenCaption(HalDC* hal, const String& str) // рисуем загол
   hal->setColor(SCREEN_TEXT_COLOR);
   
 }
+*/
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // MainScreen
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -70,6 +72,7 @@ MainScreen::MainScreen() : AbstractHALScreen()
   
   );
   buttons->setTextFont(SCREEN_BIG_FONT);
+  buttons->setSymbolFont(Various_Symbols_32x32);
   buttons->setButtonColors(BUTTON_COLORS);
 
   buttonsCreated = false;
@@ -81,6 +84,9 @@ MainScreen::MainScreen() : AbstractHALScreen()
   #endif
 
   xMultiplier = yMultiplier = zMultiplier = 1;
+  xRadDiaButton = yRadDiaButton = zRadDiaButton = infoButton = -1;
+  wantRedrawDot = false;
+  drawCalled = false;
 
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -92,7 +98,15 @@ MainScreen::~MainScreen()
 void MainScreen::onDeactivate()
 {
   // станем неактивными
-  
+  drawCalled = false;
+
+  // просим все оси перерисоваться при следующей активации экрана
+  size_t total = Scales.getCount();
+  for(size_t i=0;i<total;i++)
+  {
+    Scale* scale = Scales.getScale(i);
+    memset(scale->FILLED_CHARS,-1,sizeof(scale->FILLED_CHARS));
+  }  
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void MainScreen::onActivate()
@@ -145,16 +159,6 @@ void MainScreen::doSetup(HalDC* hal)
     xxlFontWidth = hal->getFontWidth(SevenSeg_XXXL_Num);
     xxlFontHeight = hal->getFontHeight(SevenSeg_XXXL_Num);
 
-    noDataString.reserve(DIGIT_PLACES);
-    for(int i=0;i<DIGIT_PLACES;i++)
-    {
-      noDataString += '3';
-    }
-    // мы используем N позиций под целые, две - под дробные, плюс - точка.
-    // точка имеет меньшую ширину
-    noDataStringWidth = 2*xyzFontWidth + DIGIT_PLACES*xyzFontWidth + XYZ_FONT_DOT_WIDTH;
-    fullDigitPlacesWidth = xyzFontWidth*DIGIT_PLACES;
-
     uint8_t stored;
     if(Settings.read(RAD_DIA_BASE_STORE_ADDRESS,stored))
     {
@@ -174,13 +178,26 @@ void MainScreen::doSetup(HalDC* hal)
       DBG(F("zMultiplier stored = "));
       DBGLN(zMultiplier);
     }
+
+    #ifndef USE_X_RAD_DIA_BUTTON
+      xMultiplier = 1;
+    #endif
+
+    #ifndef USE_Y_RAD_DIA_BUTTON
+      yMultiplier = 1;
+    #endif
+
+    #ifndef USE_Z_RAD_DIA_BUTTON
+      zMultiplier = 1;
+    #endif
+    
     
 
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void MainScreen::doUpdate(HalDC* hal)
 {
-  if(!isActive())
+  if(!isActive() || !drawCalled)
     return;
 
   // переименовываем кнопки, если надо
@@ -193,7 +210,7 @@ void MainScreen::doUpdate(HalDC* hal)
       buttons->relabelButton(it->btn,it->newLabel,true);
     }
 
-    relabelQueue.empty();
+    relabelQueue.clear();
   }
 
   // перерисовываем показания, если надо
@@ -202,11 +219,14 @@ void MainScreen::doUpdate(HalDC* hal)
   {
     for(size_t i=0;i<sz;i++)
     {
+        if(wantRedrawDot)
+          drawDot(hal,wantsToDraw[i]);
+          
         drawAxisData(hal,wantsToDraw[i]);
     }
-    wantsToDraw.empty();
+    wantsToDraw.clear();
+    wantRedrawDot = false;
   }
-
 
     // проверяем экранные кнопки
     int clicked_button = buttons->checkButtons(ButtonPressed);
@@ -215,16 +235,28 @@ void MainScreen::doUpdate(HalDC* hal)
       // сообщаем, что у нас нажата кнопка
       hal->notifyAction(this);
 
-      if(false)
+      if(infoButton == clicked_button)
       {
-        
+        DBGLN(F("SHOW INFO BOX!"));
+        Vector<const char*> lines;
+        lines.push_back("Arduino DRO project.");
+        lines.push_back("");
+        lines.push_back("Автор: Порохня Дмитрий.");
+        lines.push_back("Email: spywarrior@gmail.com.");
+        lines.push_back("");
+        lines.push_back("(c) 2018-2019");
+
+        MessageBox->show("ИНФОРМАЦИЯ", lines,this);
       }
+      
       #ifdef USE_MM_INCH_SWITCH
       else
       if(mmInchButton == clicked_button)
       {
         
         DBGLN(F("SWITCH MM/INCH!"));
+
+        wantRedrawDot = true;
         
         if(measureMode == mmMM)
           measureMode = mmInch;
@@ -240,13 +272,14 @@ void MainScreen::doUpdate(HalDC* hal)
         {
           Scale* scale = Scales.getScale(i);
           //TODO: ТУТ ПОД ВОПРОСОМ - РАСКОММЕНТИРОВАТЬ ИЛИ НЕТ СЛЕДУЮЩУЮ СТРОЧКУ!!!
-          //////memset(scale->FILLED_CHARS,-1,sizeof(scale->FILLED_CHARS));
+          memset(scale->FILLED_CHARS,-1,sizeof(scale->FILLED_CHARS));
           addToDrawQueue(scale);
         }
 
         
       } // else if(mmInchButton == clicked_button)
       #endif // USE_MM_INCH_SWITCH
+      
       #if defined(USE_X_RAD_DIA_BUTTON)  && defined(USE_X_SCALE)
       else if(xRadDiaButton == clicked_button)
       {
@@ -259,18 +292,13 @@ void MainScreen::doUpdate(HalDC* hal)
         buttons->relabelButton(xRadDiaButton,xMultiplier == 2 ? X_RAD_CAPTION : X_DIA_CAPTION, true);
 
         // просим ось X перерисоваться
-        size_t total = Scales.getCount();
-        for(size_t i=0;i<total;i++)
-        {
-          Scale* scale = Scales.getScale(i);
-          if(scale->getKind() == akX)
-          {
-            addToDrawQueue(scale);
-            break;
-          }
-        }
+        Scale* scale = Scales.getScale(akX);
+        if(scale && scale->hasData())
+          addToDrawQueue(scale);
+          
       }
       #endif // USE_X_RAD_DIA_BUTTON
+      
       #if defined(USE_Y_RAD_DIA_BUTTON)  && defined(USE_Y_SCALE)
       else if(yRadDiaButton == clicked_button)
       {
@@ -283,18 +311,13 @@ void MainScreen::doUpdate(HalDC* hal)
         buttons->relabelButton(yRadDiaButton,yMultiplier == 2 ? Y_RAD_CAPTION : Y_DIA_CAPTION, true);
         
         // просим ось Y перерисоваться
-        size_t total = Scales.getCount();
-        for(size_t i=0;i<total;i++)
-        {
-          Scale* scale = Scales.getScale(i);
-          if(scale->getKind() == akY)
-          {
-            addToDrawQueue(scale);
-            break;
-          }
-        }
+        Scale* scale = Scales.getScale(akY);
+        if(scale && scale->hasData())
+          addToDrawQueue(scale);
+
       }
-      #endif // USE_Y_RAD_DIA_BUTTON      
+      #endif // USE_Y_RAD_DIA_BUTTON 
+           
       #if defined(USE_Z_RAD_DIA_BUTTON)  && defined(USE_Z_SCALE)
       else if(zRadDiaButton == clicked_button)
       {
@@ -307,20 +330,15 @@ void MainScreen::doUpdate(HalDC* hal)
         buttons->relabelButton(zRadDiaButton,zMultiplier == 2 ? Z_RAD_CAPTION : Z_DIA_CAPTION, true);
 
         // просим ось Z перерисоваться
-        size_t total = Scales.getCount();
-        for(size_t i=0;i<total;i++)
-        {
-          Scale* scale = Scales.getScale(i);
-          if(scale->getKind() == akZ)
-          {
-            addToDrawQueue(scale);
-            break;
-          }
-        }
+        Scale* scale = Scales.getScale(akZ);
+        if(scale && scale->hasData())
+          addToDrawQueue(scale);
+
       }
-      #endif // USE_Z_RAD_DIA_BUTTON      
+      #endif // USE_Z_RAD_DIA_BUTTON   
+         
       else
-      {
+      {        
           size_t total = Scales.getCount();
           for(size_t i=0;i<total;i++)
           {
@@ -329,24 +347,23 @@ void MainScreen::doUpdate(HalDC* hal)
             {
               if((scale->getAbsButtonIndex() == clicked_button)) // кнопка ABS
               {
-                DBG(F("CLICKED: "));
+                DBG(scale->getAxis());
+                DBG(F(" CLICKED: "));
                 DBGLN(scale->getAbsButtonCaption());
                 switchABS(scale);
-                
+                break;
               }
               else
               if((scale->getZeroButtonIndex() == clicked_button)) // кнопка ZERO
               {
-                DBG(F("CLICKED: "));
+                DBG(scale->getAxis());
+                DBG(F(" CLICKED: "));
                 DBGLN(scale->getZeroButtonCaption());
                 switchZERO(scale);
+                break;
               }
-              {
-                
-              }
-    
-              break;
-            }
+              
+            } // if(scale->isActive())
           } // for
           
       } // else
@@ -396,12 +413,10 @@ void MainScreen::switchZERO(Scale* scale)
   
   if(scale->inZEROMode())
   {
-    //buttons->relabelButton(scale->getZeroButtonIndex(),scale->getZeroButtonCaption(),true);
     qi.newLabel = scale->getZeroButtonCaption();
   }
   else
   {
-    //buttons->relabelButton(scale->getZeroButtonIndex(),scale->getRstZeroButtonCaption(),true);              
     qi.newLabel = scale->getRstZeroButtonCaption();
   }     
 
@@ -459,85 +474,98 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
   if(!scale->hasData())
   {
 
+    // нет данных с датчика
     // сбрасываем последние известные значения для оси
     memset(scale->FILLED_CHARS,-1,sizeof(scale->FILLED_CHARS));
 
-    // нет данных с датчика
+    axisX -= (DIGITS_PLACES*xyzFontWidth + XYZ_FONT_DOT_WIDTH);
+
     hal->setColor(scale->isActive() ? AXIS_NO_DATA_COLOR : INACTIVE_AXIS_COLOR);
-    
-    axisX -= noDataStringWidth;
-    scale->setLastValueX(axisX);
+     
+    // рисуем целые
+    int countWholePart = measureMode == mmMM ? DIGITS_PLACES - MM_RESOLUTION : DIGITS_PLACES - INCH_RESOLUTION;
+    for(int i=0;i<countWholePart;i++)
+    {
+      hal->print("3",axisX,axisY); // строка вида "-" в используемом шрифте
+      axisX += xyzFontWidth;
+    } // for
 
-    // теперь рисуем позиции до точки    
-    hal->print(noDataString.c_str(),axisX,axisY); // строка вида "---" в используемом шрифте
-    axisX += fullDigitPlacesWidth + XYZ_FONT_DOT_WIDTH;
+    // рисуем точку
+    drawDot(hal,scale);
 
-    // теперь две позиции после запятой
-    hal->print("33",axisX,axisY); // строка "--" в используемом шрифте
+    // рисуем дробные
+    axisX += XYZ_FONT_DOT_WIDTH;
+
+    int countFractPart = DIGITS_PLACES - countWholePart;
+    for(int i=0;i<countFractPart;i++)
+    {
+      hal->print("3",axisX,axisY); // строка вида "-" в используемом шрифте
+      axisX += xyzFontWidth;
+    } // for
 
 
   } // if
   else
   {
 
-    //TODO: ОТРИСОВКА РЕАЛИЗОВАНА ТОЛЬКО ДЛЯ МИЛЛИМЕТРОВ, ПОСКОЛЬКУ ПОКА ИСПОЛЬЗУЕТСЯ ФИКСИРОВАННАЯ ПОЗИЦИЯ ТОЧКИ - ДВА ЗНАКА ПОСЛЕ ЗАПЯТОЙ!
-
     // есть данные с датчика
     hal->setColor(AXIS_FRACT_VALUE_COLOR);
     hal->setFont(SevenSeg_XXXL_Num);
     
     ScaleFormattedData scaleData = scale->getData(measureMode, getMultiplier(scale));
+    static char curDigit[2] = {0};
 
     // выводим показания с датчика
-    int strWidth = 2*xxlFontWidth;
+    int countOfFractDigits = measureMode == mmMM ? MM_RESOLUTION : INCH_RESOLUTION;
+    int strWidth = countOfFractDigits * xxlFontWidth;
     
-    // дробные
+    // дробные, N разрядов
 
     axisX -= strWidth;
-    // сейчас по X мы стоим на первом разряде дробных. Надо проверить, не изменился ли он?
-    char lastDigit = scale->FILLED_CHARS[sizeof(scale->FILLED_CHARS)-2];
-    static char curDigit[2] = {0};
-    curDigit[0] = scaleData.Fract < 10 ? '0' : (scaleData.Fract/10) + '0'; 
 
-    if(curDigit[0] != lastDigit)
+    // отрисовываем сами дробные, их N штук
+    uint32_t fractDelimiter = pow(10,countOfFractDigits-1);
+
+    int fractPos = sizeof(scale->FILLED_CHARS) - countOfFractDigits;
+  
+    for(int i=0;i<countOfFractDigits;i++)
     {
-      // запоминаем
-      scale->FILLED_CHARS[sizeof(scale->FILLED_CHARS)-2] = curDigit[0];
+      char lastDigit = scale->FILLED_CHARS[fractPos];
+      uint32_t fractVal = scaleData.Fract/fractDelimiter % 10;
+      
+      scaleData.Fract -= fractVal*fractDelimiter;
+      fractDelimiter /= 10;
 
-      // перерисовываем
-      hal->print(curDigit,axisX,axisY);
+      curDigit[0] = fractVal + '0';
+      if(curDigit[0] != lastDigit)
+      {
+        // запоминаем
+        scale->FILLED_CHARS[fractPos] = curDigit[0];
 
-    }
+        // перерисовываем
+        hal->print(curDigit,axisX,axisY);        
+      }
 
-    // переходим на второй разряд дробных
-    axisX += xyzFontWidth;
-    lastDigit = scale->FILLED_CHARS[sizeof(scale->FILLED_CHARS)-1];
-    curDigit[0] = (scaleData.Fract%10) + '0';
+      axisX += xyzFontWidth;
+      fractPos++;
 
-    if(curDigit[0] != lastDigit)
-    {
-      // запоминаем
-      scale->FILLED_CHARS[sizeof(scale->FILLED_CHARS)-1] = curDigit[0];
-
-      // перерисовываем
-      hal->print(curDigit,axisX,axisY);
-
-    }
-
+    } // for
+    
     // перемещаемся перед точкой
-    axisX -= (XYZ_FONT_DOT_WIDTH + xyzFontWidth);
+    axisX -= (XYZ_FONT_DOT_WIDTH + strWidth);
 
 
     // целые
+    
     hal->setColor(AXIS_WHOLE_VALUE_COLOR);
     
     // тут мы стоим за последним знаком целого значения.
     // нам надо отобразить все значащие разряды, и знак "минус", если значение отрицательное.
     // при этом разряд перерисовывается только тогда, когда он изменился с момента последней перерисовки.
-    // у нас есть DIGIT_PLACES мест под разряды, плюс одно место - под опциональный минус.
-
-    int delimiter = 1;    
-    int digitPos = sizeof(scale->FILLED_CHARS)-3; // указатель на текущий разряд
+    // у нас есть DIGITS_PLACES мест под разряды, плюс одно место - под опциональный минус.
+        
+    int32_t delimiter = 1;    
+    int digitPos = sizeof(scale->FILLED_CHARS) - (countOfFractDigits+1); // указатель на текущий разряд
     uint32_t absVal = abs(scaleData.Value);
 
     // определяем разрядность числа
@@ -548,19 +576,20 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
       countDigits++;
       valCpy /= 10;
     }
-    
-    for(int z=0;z<DIGIT_PLACES;z++)
+
+
+    for(int z=0;z<countDigits;z++)
     {
-      lastDigit = scale->FILLED_CHARS[digitPos];
       curDigit[0] = (absVal/delimiter % 10) + '0';
       delimiter *= 10;
-
+      
       // перемещаемся на позицию цифры
       axisX -= xyzFontWidth;
 
       // проверяем, изменилась ли цифра разряда?
       if(scale->FILLED_CHARS[digitPos] != curDigit[0])
       {
+
         // запоминаем
         scale->FILLED_CHARS[digitPos] = curDigit[0];
 
@@ -570,12 +599,9 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
       }
 
       digitPos--;
-
-      // тут проверяем - если разрядность числа закончилась - выходим из цикла
-      if(!--countDigits)
-        break;
       
     } // for
+    
 
     // прошли по всем цифрам, теперь смотрим, не надо ли нарисовать минус
     if(scaleData.Value < 0)
@@ -609,7 +635,7 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
       hal->setColor(SCREEN_BACK_COLOR);
       hal->fillRect(axisLastValueX, axisY,axisX,axisY + scale->getHeight());
     }    
-
+    
     
   } // else
 
@@ -638,7 +664,7 @@ void MainScreen::redrawMeasureUnits(HalDC* hal)
     Scale* scale = Scales.getScale(i);
     // теперь рисуем единицы измерения
     hal->setColor(scale->isActive() ? AXIS_UNIT_COLOR : INACTIVE_AXIS_COLOR);
-    hal->print(measureMode == mmMM ? "7" : "8",scale->getDataXCoord(),scale->getY()); // пока тупо миллиметры отображаем
+    hal->print(measureMode == mmMM ? "7" : "8",scale->getDataXCoord(),scale->getY());
   }
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -677,26 +703,50 @@ void MainScreen::drawGUI(HalDC* hal)
         // создаём кнопку mm/inch
         int mmInchButtonWidth = max(hal->print(MM_CAPTION,0,0,0,true),hal->print(INCH_CAPTION,0,0,0,true))*brfWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
         mmInchButton = buttons->addButton(cbLeft,cbTop,mmInchButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,measureMode == mmMM ? INCH_CAPTION : MM_CAPTION);
+        buttons->setButtonBackColor(mmInchButton,MM_INCH_SWITCH_BUTTON_COLOR);
+        buttons->setButtonFontColor(mmInchButton,MM_INCH_SWITCH_BUTTON_FONT_COLOR);
         cbLeft += mmInchButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
         #endif // USE_MM_INCH_SWITCH
 
-    #if defined(USE_X_RAD_DIA_BUTTON) && defined(USE_X_SCALE)
+    
         int xRadDiaButtonWidth = max(hal->print(X_RAD_CAPTION,0,0,0,true),hal->print(X_DIA_CAPTION,0,0,0,true))*brfWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
         xRadDiaButton = buttons->addButton(cbLeft,cbTop,xRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,xMultiplier == 1 ? X_DIA_CAPTION : X_RAD_CAPTION);
-        cbLeft += xRadDiaButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
+    #if defined(USE_X_RAD_DIA_BUTTON) && defined(USE_X_SCALE)
+        buttons->setButtonBackColor(xRadDiaButton,X_RAD_DIA_BUTTON_COLOR);
+        buttons->setButtonFontColor(xRadDiaButton,X_RAD_DIA_BUTTON_FONT_COLOR);
+    #else
+        buttons->disableButton(xRadDiaButton);
+        buttons->setButtonBackColor(xRadDiaButton,SCREEN_BACK_COLOR);
     #endif
+        cbLeft += xRadDiaButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
 
-    #if defined(USE_Y_RAD_DIA_BUTTON) && defined(USE_Y_SCALE)
         int yRadDiaButtonWidth = max(hal->print(Y_RAD_CAPTION,0,0,0,true),hal->print(Y_DIA_CAPTION,0,0,0,true))*brfWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
         yRadDiaButton = buttons->addButton(cbLeft,cbTop,yRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,yMultiplier == 1 ? Y_DIA_CAPTION : Y_RAD_CAPTION);
-        cbLeft += yRadDiaButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
+    #if defined(USE_Y_RAD_DIA_BUTTON) && defined(USE_Y_SCALE)
+        buttons->setButtonBackColor(yRadDiaButton,Y_RAD_DIA_BUTTON_COLOR);
+        buttons->setButtonFontColor(yRadDiaButton,Y_RAD_DIA_BUTTON_FONT_COLOR);
+    #else        
+        buttons->disableButton(yRadDiaButton);
+        buttons->setButtonBackColor(yRadDiaButton,SCREEN_BACK_COLOR);
     #endif
+        cbLeft += yRadDiaButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
 
-    #if defined(USE_Z_RAD_DIA_BUTTON)  && defined(USE_Z_SCALE)
         int zRadDiaButtonWidth = max(hal->print(Z_RAD_CAPTION,0,0,0,true),hal->print(Z_DIA_CAPTION,0,0,0,true))*brfWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
         zRadDiaButton = buttons->addButton(cbLeft,cbTop,zRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,zMultiplier == 1 ? Z_DIA_CAPTION : Z_RAD_CAPTION);
-        cbLeft += zRadDiaButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
+    #if defined(USE_Z_RAD_DIA_BUTTON)  && defined(USE_Z_SCALE)
+        buttons->setButtonBackColor(zRadDiaButton,Z_RAD_DIA_BUTTON_COLOR);
+        buttons->setButtonFontColor(zRadDiaButton,Z_RAD_DIA_BUTTON_FONT_COLOR);
+    #else
+        buttons->disableButton(zRadDiaButton);
+        buttons->setButtonBackColor(zRadDiaButton,SCREEN_BACK_COLOR);
     #endif
+        cbLeft += zRadDiaButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
+
+        int infoButtonWidth = INFO_BUTTON_WIDTH;
+        infoButton = buttons->addButton(screenWidth - infoButtonWidth - MAIN_SCREEN_LABELS_Y_OFFSET,cbTop,infoButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,"[", BUTTON_SYMBOL);
+        buttons->setButtonBackColor(infoButton,INFO_BUTTON_COLOR);
+        buttons->setButtonFontColor(infoButton,INFO_BUTTON_FONT_COLOR);
+        
         
           
     } // !buttonsCreated
@@ -759,28 +809,10 @@ void MainScreen::drawGUI(HalDC* hal)
 
         // теперь рисуем единицы измерения
         hal->setColor(scale->isActive() ? AXIS_UNIT_COLOR : INACTIVE_AXIS_COLOR);
-        hal->print(
-          #ifdef DEFAULT_IS_INCH
-          "8"
-          #else
-          "7"
-          #endif
-          ,scale->getDataXCoord(),curY); // пока тупо миллиметры отображаем
+        hal->print(measureMode == mmInch ? "8" : "7" ,scale->getDataXCoord(),curY);
 
         // рисуем точку
           drawDot(hal,scale);
-
-          /*
-          hal->setColor(AXIS_DOT_COLOR);          
-          hal->setFont(XYZFont);
-          hal->print(
-            #ifdef USE_COMMA_INSTEAD_OF_DOT 
-            "5"
-            #else
-            "4"
-            #endif
-            ,scale->getDataXCoord() - xyzFontWidth*2 - XYZ_FONT_DOT_WIDTH,curY); // строка "." в используемом шрифте
-          */
 
         // добавляем в очередь на отрисовку
         addToDrawQueue(scale);
@@ -796,7 +828,8 @@ void MainScreen::drawGUI(HalDC* hal)
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void MainScreen::drawDot(HalDC* hal, Scale* scale)
 {
-  hal->setColor(AXIS_DOT_COLOR);          
+  hal->setColor(scale->isActive() ? AXIS_NO_DATA_COLOR : INACTIVE_AXIS_COLOR);
+
   hal->setFont(XYZFont);
   hal->print(
     #ifdef USE_COMMA_INSTEAD_OF_DOT 
@@ -804,7 +837,7 @@ void MainScreen::drawDot(HalDC* hal, Scale* scale)
     #else
     "4"
     #endif
-    ,scale->getDataXCoord() - xyzFontWidth*2 - XYZ_FONT_DOT_WIDTH,scale->getY()); // строка "." в используемом шрифте  
+    ,scale->getDataXCoord() - xyzFontWidth*(measureMode == mmMM ? MM_RESOLUTION : INCH_RESOLUTION) - XYZ_FONT_DOT_WIDTH,scale->getY()); // строка "." в используемом шрифте  
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void MainScreen::doDraw(HalDC* hal)
@@ -815,6 +848,7 @@ void MainScreen::doDraw(HalDC* hal)
    drawGUI(hal);
 
    hal->updateDisplay();
+   drawCalled = true;
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
