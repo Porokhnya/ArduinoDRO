@@ -113,6 +113,8 @@ private:
     int zRadDiaButton;
     #endif
 
+    void drawDot(HalDC* hal, Scale* scale);
+
     Vector<RelabelQueueItem> relabelQueue;
   
 };

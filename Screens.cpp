@@ -766,6 +766,9 @@ void MainScreen::drawGUI(HalDC* hal)
           ,scale->getDataXCoord(),curY); // пока тупо миллиметры отображаем
 
         // рисуем точку
+          drawDot(hal,scale);
+
+          /*
           hal->setColor(AXIS_DOT_COLOR);          
           hal->setFont(XYZFont);
           hal->print(
@@ -775,6 +778,7 @@ void MainScreen::drawGUI(HalDC* hal)
             "4"
             #endif
             ,scale->getDataXCoord() - xyzFontWidth*2 - XYZ_FONT_DOT_WIDTH,curY); // строка "." в используемом шрифте
+          */
 
         // добавляем в очередь на отрисовку
         addToDrawQueue(scale);
@@ -786,6 +790,19 @@ void MainScreen::drawGUI(HalDC* hal)
   buttonsCreated = true;
   
   buttons->drawButtons(drawButtonsYield);
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void MainScreen::drawDot(HalDC* hal, Scale* scale)
+{
+  hal->setColor(AXIS_DOT_COLOR);          
+  hal->setFont(XYZFont);
+  hal->print(
+    #ifdef USE_COMMA_INSTEAD_OF_DOT 
+    "5"
+    #else
+    "4"
+    #endif
+    ,scale->getDataXCoord() - xyzFontWidth*2 - XYZ_FONT_DOT_WIDTH,scale->getY()); // строка "." в используемом шрифте  
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void MainScreen::doDraw(HalDC* hal)
