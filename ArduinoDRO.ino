@@ -49,64 +49,6 @@ void screenAction(AbstractHALScreen* screen)
    screenIdleTimer = millis();
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-#ifdef USE_EXTERNAL_WATCHDOG
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-typedef enum
-{
-  WAIT_FOR_TRIGGERED,
-  WAIT_FOR_NORMAL 
-} ExternalWatchdogState;
-
-typedef struct
-{
-  uint16_t timer;
-  ExternalWatchdogState state;
-} ExternalWatchdogSettings;
-
-ExternalWatchdogSettings watchdogSettings;
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-#endif // USE_EXTERNAL_WATCHDOG
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-#ifdef USE_EXTERNAL_WATCHDOG
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void updateExternalWatchdog()
-{
-  static unsigned long watchdogLastMillis = millis();
-  unsigned long watchdogCurMillis = millis();
-
-  uint16_t dt = watchdogCurMillis - watchdogLastMillis;
-  watchdogLastMillis = watchdogCurMillis;
-
-      watchdogSettings.timer += dt;
-      switch(watchdogSettings.state)
-      {
-        case WAIT_FOR_TRIGGERED:
-        {
-          if(watchdogSettings.timer >= WATCHDOG_WORK_INTERVAL)
-          {
-            watchdogSettings.timer = 0;
-            watchdogSettings.state = WAIT_FOR_NORMAL;
-            digitalWrite(WATCHDOG_REBOOT_PIN, WATCHDOG_TRIGGERED_LEVEL);
-          }
-        }
-        break;
-
-        case WAIT_FOR_NORMAL:
-        {
-          if(watchdogSettings.timer >= WATCHDOG_PULSE_DURATION)
-          {
-            watchdogSettings.timer = 0;
-            watchdogSettings.state = WAIT_FOR_TRIGGERED;
-            digitalWrite(WATCHDOG_REBOOT_PIN, WATCHDOG_NORMAL_LEVEL);
-          }          
-        }
-        break;
-      }  
-  
-}
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-#endif // USE_EXTERNAL_WATCHDOG
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 int freeRam()
 {
     struct mallinfo mi = mallinfo();
@@ -224,13 +166,6 @@ void setup()
   #endif
   
 
-  #ifdef USE_EXTERNAL_WATCHDOG
-    pinMode(WATCHDOG_REBOOT_PIN,OUTPUT);
-    digitalWrite(WATCHDOG_REBOOT_PIN,WATCHDOG_NORMAL_LEVEL);
-    watchdogSettings.timer = 0;
-    watchdogSettings.state = WAIT_FOR_TRIGGERED;
-  #endif
-
   DBGLN(F("Init scales..."));
   Scales.setup();
 
@@ -305,9 +240,6 @@ void setup()
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 void loop() 
 {
-   #ifdef USE_EXTERNAL_WATCHDOG
-     updateExternalWatchdog();
-   #endif // USE_EXTERNAL_WATCHDOG
 
   Screen.update();  
   Scales.update();
@@ -352,10 +284,6 @@ void yield()
 
   nestedYield = true;
   
-   #ifdef USE_EXTERNAL_WATCHDOG
-     updateExternalWatchdog();
-   #endif // USE_EXTERNAL_WATCHDOG
-
    Scales.update();
 
    nestedYield = false;
