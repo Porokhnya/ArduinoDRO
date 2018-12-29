@@ -210,7 +210,7 @@ void MainScreen::doUpdate(HalDC* hal)
       buttons->relabelButton(it->btn,it->newLabel,true);
     }
 
-    relabelQueue.clear();
+    relabelQueue.empty();
   }
 
   // перерисовываем показания, если надо
@@ -224,7 +224,7 @@ void MainScreen::doUpdate(HalDC* hal)
           
         drawAxisData(hal,wantsToDraw[i]);
     }
-    wantsToDraw.clear();
+    wantsToDraw.empty();
     wantRedrawDot = false;
   }
 
