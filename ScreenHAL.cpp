@@ -1,6 +1,37 @@
 #include "ScreenHAL.h"
 #include "Buzzer.h"
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+void drawScreenCaption(HalDC* hal, const char* str) // рисуем заголовок экрана
+{
+  FONT_TYPE* oldFont = hal->getFont();
+  COLORTYPE oldColor = hal->getColor();
+  COLORTYPE oldBackColor = hal->getBackColor();
+  
+  int screenWidth = hal->getScreenWidth();
+  hal->setFont(SCREEN_BIG_FONT);
+  int fontWidth = hal->getFontWidth(SCREEN_BIG_FONT);
+  int fontHeight = hal->getFontHeight(SCREEN_BIG_FONT);
+  int top = 10;
+
+  // подложка под заголовок
+  hal->setColor(SCREEN_CAPTION_BACK_COLOR);
+  hal->fillRect(0, 0, screenWidth-1, top*2 + fontHeight);
+  
+  hal->setBackColor(SCREEN_CAPTION_BACK_COLOR);
+  hal->setColor(SCREEN_CAPTION_FONT_COLOR); 
+   
+  int strLen = hal->print(str,0,0,0,true);
+
+  int left = (screenWidth - fontWidth*strLen)/2;
+
+  hal->print(str,left,top);  
+
+  hal->setBackColor(oldBackColor);
+  hal->setColor(oldColor);
+  hal->setFont(oldFont);
+  
+}
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 int utf8_strlen(const String& str) // возвращает длину в символах строки в кодировке UTF-8
 {
     
@@ -649,18 +680,8 @@ void MessageBoxScreen::doDraw(HalDC* hal)
 
   int lineLength = 0;
 
-  // подложка под заголовок
-  hal->setColor(MESSAGE_BOX_CAPTION_BACK_COLOR);
-  hal->fillRect(0, 0, displayWidth-1, topOffset*2 + fontHeight);
-  
-  if(caption)
-  {
-    hal->setBackColor(MESSAGE_BOX_CAPTION_BACK_COLOR);
-    hal->setColor(MESSAGE_BOX_CAPTION_FONT_COLOR);
-    lineLength = hal->print(caption,curX,curY,0,true);
-    curX = (displayWidth - lineLength*fontWidth)/2; 
-    hal->print(caption,curX,curY);
-  }
+  // рисуем заголовок экрана
+  drawScreenCaption(hal,caption);
 
   hal->setBackColor(SCREEN_BACK_COLOR);
   hal->setColor(SCREEN_TEXT_COLOR);

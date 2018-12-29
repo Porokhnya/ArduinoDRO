@@ -31,34 +31,6 @@ Button zAbsHardwareButton;
 Button zZeroHardwareButton;
 #endif    
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-/*
-void drawScreenCaption(HalDC* hal, const String& str) // рисуем заголовок экрана
-{
-  int screenWidth = hal->getScreenWidth();
-  hal->setFont(SCREEN_BIG_FONT);
-  int fontWidth = hal->getFontWidth(SCREEN_BIG_FONT);
-  int fontHeight = hal->getFontHeight(SCREEN_BIG_FONT);
-  int top = 10;
-
-  // подложка под заголовок
-  hal->setColor(VGA_NAVY);
-  hal->fillRect(0, 0, screenWidth-1, top*2 + fontHeight);
-  
-  hal->setBackColor(VGA_NAVY);
-  hal->setColor(VGA_WHITE); 
-   
-  int strLen = hal->print(str.c_str(),0,0,0,true);
-
-  int left = (screenWidth - fontWidth*strLen)/2;
-
-  hal->print(str.c_str(),left,top);  
-
-  hal->setBackColor(SCREEN_BACK_COLOR);
-  hal->setColor(SCREEN_TEXT_COLOR);
-  
-}
-*/
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // MainScreen
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 MainScreen* Main = NULL;        

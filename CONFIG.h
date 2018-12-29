@@ -125,8 +125,8 @@
 #define INFO_BUTTON_COLOR VGA_BLUE // цвет кнопки информации
 #define INFO_BUTTON_FONT_COLOR VGA_WHITE // цвет шрифта кнопки информации
 #define INFO_BUTTON_WIDTH 70 // ширина кнопки информации
-#define MESSAGE_BOX_CAPTION_BACK_COLOR VGA_NAVY // цвет заголовка информационного окна
-#define MESSAGE_BOX_CAPTION_FONT_COLOR VGA_WHITE // цвет текста заголовка информационного окна 
+#define SCREEN_CAPTION_BACK_COLOR VGA_NAVY // цвет заголовка окна
+#define SCREEN_CAPTION_FONT_COLOR VGA_WHITE // цвет текста заголовка окна 
 
 #define SCALE_CLOCK_PIN 42 // номер пина для строба линеек
 #define STROBE_DURATION 5 // длительность строба на линии DATA, микросекунд
