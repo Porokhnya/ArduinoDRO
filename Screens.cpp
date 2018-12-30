@@ -261,7 +261,19 @@ void MainScreen::doUpdate(HalDC* hal)
         DBGLN(xMultiplier);
 
         Settings.write(RAD_DIA_BASE_STORE_ADDRESS,xMultiplier);
-        buttons->relabelButton(xRadDiaButton,xMultiplier == 2 ? X_RAD_CAPTION : X_DIA_CAPTION, true);
+
+        if(xMultiplier == 1)
+        {
+          buttons->setButtonBackColor(xRadDiaButton,X_RAD_DIA_BUTTON_COLOR);
+          buttons->setButtonFontColor(xRadDiaButton,X_RAD_DIA_BUTTON_FONT_COLOR);
+          buttons->relabelButton(xRadDiaButton,X_RAD_CAPTION, true);                    
+        }
+        else
+        {
+          buttons->setButtonBackColor(xRadDiaButton,X_RAD_DIA_BUTTON_DIA_SELECTED_BUTTON_COLOR);
+          buttons->setButtonFontColor(xRadDiaButton,X_RAD_DIA_BUTTON_DIA_SELECTED_FONT_COLOR);
+          buttons->relabelButton(xRadDiaButton,X_DIA_CAPTION, true);
+        }
 
         // просим ось X перерисоваться
         Scale* scale = Scales.getScale(akX);
@@ -280,8 +292,20 @@ void MainScreen::doUpdate(HalDC* hal)
         DBGLN(yMultiplier);
 
         Settings.write(RAD_DIA_BASE_STORE_ADDRESS+3,yMultiplier);
-        buttons->relabelButton(yRadDiaButton,yMultiplier == 2 ? Y_RAD_CAPTION : Y_DIA_CAPTION, true);
         
+        if(yMultiplier == 1)
+        {
+          buttons->setButtonBackColor(yRadDiaButton,Y_RAD_DIA_BUTTON_COLOR);
+          buttons->setButtonFontColor(yRadDiaButton,Y_RAD_DIA_BUTTON_FONT_COLOR);
+          buttons->relabelButton(yRadDiaButton,Y_RAD_CAPTION, true);
+          
+        }
+        else
+        {
+          buttons->setButtonBackColor(yRadDiaButton,Y_RAD_DIA_BUTTON_DIA_SELECTED_BUTTON_COLOR);
+          buttons->setButtonFontColor(yRadDiaButton,Y_RAD_DIA_BUTTON_DIA_SELECTED_FONT_COLOR);
+          buttons->relabelButton(yRadDiaButton,Y_DIA_CAPTION, true);          
+        }        
         // просим ось Y перерисоваться
         Scale* scale = Scales.getScale(akY);
         if(scale && scale->hasData())
@@ -299,8 +323,20 @@ void MainScreen::doUpdate(HalDC* hal)
         DBGLN(zMultiplier);
 
         Settings.write(RAD_DIA_BASE_STORE_ADDRESS+6,zMultiplier);
-        buttons->relabelButton(zRadDiaButton,zMultiplier == 2 ? Z_RAD_CAPTION : Z_DIA_CAPTION, true);
-
+        
+        if(zMultiplier == 1)
+        {
+          buttons->setButtonBackColor(zRadDiaButton,Z_RAD_DIA_BUTTON_COLOR);
+          buttons->setButtonFontColor(zRadDiaButton,Z_RAD_DIA_BUTTON_FONT_COLOR);
+          buttons->relabelButton(zRadDiaButton,Z_RAD_CAPTION, true);
+          
+        }
+        else
+        {
+          buttons->setButtonBackColor(zRadDiaButton,Z_RAD_DIA_BUTTON_DIA_SELECTED_BUTTON_COLOR);
+          buttons->setButtonFontColor(zRadDiaButton,Z_RAD_DIA_BUTTON_DIA_SELECTED_FONT_COLOR);
+          buttons->relabelButton(zRadDiaButton,Z_DIA_CAPTION, true);          
+        }
         // просим ось Z перерисоваться
         Scale* scale = Scales.getScale(akZ);
         if(scale && scale->hasData())
@@ -682,10 +718,10 @@ void MainScreen::drawGUI(HalDC* hal)
 
     
         int xRadDiaButtonWidth = max(hal->print(X_RAD_CAPTION,0,0,0,true),hal->print(X_DIA_CAPTION,0,0,0,true))*brfWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
-        xRadDiaButton = buttons->addButton(cbLeft,cbTop,xRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,xMultiplier == 1 ? X_DIA_CAPTION : X_RAD_CAPTION);
+        xRadDiaButton = buttons->addButton(cbLeft,cbTop,xRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,xMultiplier == 2 ? X_DIA_CAPTION : X_RAD_CAPTION);
     #if defined(USE_X_RAD_DIA_BUTTON) && defined(USE_X_SCALE)
-        buttons->setButtonBackColor(xRadDiaButton,X_RAD_DIA_BUTTON_COLOR);
-        buttons->setButtonFontColor(xRadDiaButton,X_RAD_DIA_BUTTON_FONT_COLOR);
+        buttons->setButtonBackColor(xRadDiaButton,xMultiplier == 2 ? X_RAD_DIA_BUTTON_DIA_SELECTED_BUTTON_COLOR : X_RAD_DIA_BUTTON_COLOR);
+        buttons->setButtonFontColor(xRadDiaButton,xMultiplier == 2 ? X_RAD_DIA_BUTTON_DIA_SELECTED_FONT_COLOR : X_RAD_DIA_BUTTON_FONT_COLOR);
     #else
         buttons->disableButton(xRadDiaButton);
         buttons->setButtonBackColor(xRadDiaButton,SCREEN_BACK_COLOR);
@@ -693,10 +729,10 @@ void MainScreen::drawGUI(HalDC* hal)
         cbLeft += xRadDiaButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
 
         int yRadDiaButtonWidth = max(hal->print(Y_RAD_CAPTION,0,0,0,true),hal->print(Y_DIA_CAPTION,0,0,0,true))*brfWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
-        yRadDiaButton = buttons->addButton(cbLeft,cbTop,yRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,yMultiplier == 1 ? Y_DIA_CAPTION : Y_RAD_CAPTION);
+        yRadDiaButton = buttons->addButton(cbLeft,cbTop,yRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,yMultiplier == 2 ? Y_DIA_CAPTION : Y_RAD_CAPTION);
     #if defined(USE_Y_RAD_DIA_BUTTON) && defined(USE_Y_SCALE)
-        buttons->setButtonBackColor(yRadDiaButton,Y_RAD_DIA_BUTTON_COLOR);
-        buttons->setButtonFontColor(yRadDiaButton,Y_RAD_DIA_BUTTON_FONT_COLOR);
+        buttons->setButtonBackColor(yRadDiaButton,yMultiplier == 2 ? Y_RAD_DIA_BUTTON_DIA_SELECTED_BUTTON_COLOR : Y_RAD_DIA_BUTTON_COLOR);
+        buttons->setButtonFontColor(yRadDiaButton,yMultiplier == 2 ? Y_RAD_DIA_BUTTON_DIA_SELECTED_FONT_COLOR : Y_RAD_DIA_BUTTON_FONT_COLOR);
     #else        
         buttons->disableButton(yRadDiaButton);
         buttons->setButtonBackColor(yRadDiaButton,SCREEN_BACK_COLOR);
@@ -704,10 +740,10 @@ void MainScreen::drawGUI(HalDC* hal)
         cbLeft += yRadDiaButtonWidth + MAIN_SCREEN_BUTTON_H_SPACING;
 
         int zRadDiaButtonWidth = max(hal->print(Z_RAD_CAPTION,0,0,0,true),hal->print(Z_DIA_CAPTION,0,0,0,true))*brfWidth + MAIN_SCREEN_BUTTON_TEXT_PADDING*2;
-        zRadDiaButton = buttons->addButton(cbLeft,cbTop,zRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,zMultiplier == 1 ? Z_DIA_CAPTION : Z_RAD_CAPTION);
+        zRadDiaButton = buttons->addButton(cbLeft,cbTop,zRadDiaButtonWidth,MAIN_SCREEN_BOTTOM_BUTTONS_HEIGHT,zMultiplier == 2 ? Z_DIA_CAPTION : Z_RAD_CAPTION);
     #if defined(USE_Z_RAD_DIA_BUTTON)  && defined(USE_Z_SCALE)
-        buttons->setButtonBackColor(zRadDiaButton,Z_RAD_DIA_BUTTON_COLOR);
-        buttons->setButtonFontColor(zRadDiaButton,Z_RAD_DIA_BUTTON_FONT_COLOR);
+        buttons->setButtonBackColor(zRadDiaButton,zMultiplier == 2 ? Z_RAD_DIA_BUTTON_DIA_SELECTED_BUTTON_COLOR : Z_RAD_DIA_BUTTON_COLOR);
+        buttons->setButtonFontColor(zRadDiaButton,zMultiplier == 2 ? Z_RAD_DIA_BUTTON_DIA_SELECTED_FONT_COLOR : Z_RAD_DIA_BUTTON_FONT_COLOR);
     #else
         buttons->disableButton(zRadDiaButton);
         buttons->setButtonBackColor(zRadDiaButton,SCREEN_BACK_COLOR);

@@ -150,6 +150,8 @@
 #define X_DIA_CAPTION "X: ДИАМЕТР" // подпись на кнопке переключения "диаметр" оси X (умножение на 2 - в режиме диаметра, без умножений - в режиме радиуса), можно на русском
 #define X_RAD_DIA_BUTTON_COLOR VGA_BLUE // цвет кнопки переключения "радиус/диаметр" для оси X
 #define X_RAD_DIA_BUTTON_FONT_COLOR VGA_WHITE // цвет шрифта кнопки переключения "радиус/диаметр" для оси X
+#define X_RAD_DIA_BUTTON_DIA_SELECTED_BUTTON_COLOR VGA_GREEN // цвет кнопки переключения "радиус/диаметр" в режиме выбранного диаметра, для оси X
+#define X_RAD_DIA_BUTTON_DIA_SELECTED_FONT_COLOR VGA_WHITE // цвет текста кнопки переключения "радиус/диаметр" в режиме выбранного диаметра, для оси X
 #define USE_X_ABS_HARDWARE_BUTTON // закомментировать, если не нужно использовать для оси X железную кнопку "ABS", дублирующую экранную кнопку
 #define X_ABS_HARDWARE_BUTTON_PIN 10 // 46 // номер пина для железной кнопки "ABS" для оси X
 #define X_ABS_HARDWARE_BUTTON_TRIGGERED_LEVEL LOW // уровень срабатывания кнопки "ABS" для оси X
@@ -168,6 +170,8 @@
 #define Y_DIA_CAPTION "Y: ДИАМЕТР" // подпись на кнопке переключения "диаметр" оси Y (умножение на 2 - в режиме диаметра, без умножений - в режиме радиуса), можно на русском
 #define Y_RAD_DIA_BUTTON_COLOR VGA_BLUE // цвет кнопки переключения "радиус/диаметр" для оси Y
 #define Y_RAD_DIA_BUTTON_FONT_COLOR VGA_WHITE // цвет шрифта кнопки переключения "радиус/диаметр" для оси Y
+#define Y_RAD_DIA_BUTTON_DIA_SELECTED_BUTTON_COLOR VGA_GREEN // цвет кнопки переключения "радиус/диаметр" в режиме выбранного диаметра, для оси Y
+#define Y_RAD_DIA_BUTTON_DIA_SELECTED_FONT_COLOR VGA_WHITE // цвет текста кнопки переключения "радиус/диаметр" в режиме выбранного диаметра, для оси Y
 #define USE_Y_ABS_HARDWARE_BUTTON // закомментировать, если не нужно использовать для оси Y железную кнопку "ABS", дублирующую экранную кнопку
 #define Y_ABS_HARDWARE_BUTTON_PIN 48 // номер пина для железной кнопки "ABS" для оси Y
 #define Y_ABS_HARDWARE_BUTTON_TRIGGERED_LEVEL LOW // уровень срабатывания кнопки "ABS" для оси Y
@@ -186,6 +190,8 @@
 #define Z_DIA_CAPTION "Z: ДИАМЕТР" // подпись на кнопке переключения "диаметр" оси Z (умножение на 2 - в режиме диаметра, без умножений - в режиме радиуса), можно на русском
 #define Z_RAD_DIA_BUTTON_COLOR VGA_BLUE // цвет кнопки переключения "радиус/диаметр" для оси Z
 #define Z_RAD_DIA_BUTTON_FONT_COLOR VGA_WHITE // цвет шрифта кнопки переключения "радиус/диаметр" для оси Z
+#define Z_RAD_DIA_BUTTON_DIA_SELECTED_BUTTON_COLOR VGA_GREEN // цвет кнопки переключения "радиус/диаметр" в режиме выбранного диаметра, для оси Z
+#define Z_RAD_DIA_BUTTON_DIA_SELECTED_FONT_COLOR VGA_WHITE // цвет текста кнопки переключения "радиус/диаметр" в режиме выбранного диаметра, для оси Z
 #define USE_Z_ABS_HARDWARE_BUTTON // закомментировать, если не нужно использовать для оси Z железную кнопку "ABS", дублирующую экранную кнопку
 #define Z_ABS_HARDWARE_BUTTON_PIN 50 // номер пина для железной кнопки "ABS" для оси Z
 #define Z_ABS_HARDWARE_BUTTON_TRIGGERED_LEVEL LOW // уровень срабатывания кнопки "ABS" для оси Z
