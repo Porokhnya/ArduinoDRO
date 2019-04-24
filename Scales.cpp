@@ -18,6 +18,12 @@ bool ScaleFormattedData::operator!=(const ScaleFormattedData& rhs)
 //--------------------------------------------------------------------------------------------------------------------------------------
 // Scale
 //--------------------------------------------------------------------------------------------------------------------------------------
+InterruptRecord scaleInterrupts[3] = {
+  {NULL, Scale::int1},
+  {NULL, Scale::int2},
+  {NULL, Scale::int3},
+};
+//--------------------------------------------------------------------------------------------------------------------------------------
 Scale::Scale(AxisKind _kind, uint16_t _eepromAddress, const char* _label, const char* _absButtonCaption, const char* _relButtonCaption, 
 const char* _zeroButtonCaption, const char* _rstZeroButtonCaption, char _axis, uint8_t _dataPin,  uint8_t _clockPin, uint8_t _scaleType, bool _active)
 {
@@ -32,6 +38,10 @@ const char* _zeroButtonCaption, const char* _rstZeroButtonCaption, char _axis, u
 
    zeroButtonIndex = -1;
    absButtonIndex = -1;
+
+    wantNextCaliperBit = false;
+    caliperBitNumber = 0;
+    caliperValueSign = 1;
 
    isAbsFactorEnabled = false;
    absFactor = 0;
@@ -59,6 +69,46 @@ const char* _zeroButtonCaption, const char* _rstZeroButtonCaption, char _axis, u
    memset(FILLED_CHARS,-1,sizeof(FILLED_CHARS));
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
+void Scale::int1()
+{
+  Scale::wantReadBit_CaliperProtocol(0);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void Scale::int2()
+{
+  Scale::wantReadBit_CaliperProtocol(1);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void Scale::int3()
+{
+  Scale::wantReadBit_CaliperProtocol(2);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void Scale::wantReadBit_CaliperProtocol(uint8_t recIndex)
+{
+  if(scaleInterrupts[recIndex].scale)
+  {
+    scaleInterrupts[recIndex].scale->wantNextBit_CaliperProtocol();
+  }
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void Scale::wantNextBit_CaliperProtocol()
+{
+  //взводим флаг, что надо прочитать следующий бит, поскольку пойман спад фронта
+  wantNextCaliperBit = true;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+uint8_t Scale::readNextBit_CaliperProtocol()
+{
+  uint8_t result = 0;
+
+  // читаем 3 раза, чтобы точно попасть в уровень  
+  for(uint8_t i=0;i<3;i++)
+    result += digitalRead(dataPin);
+
+  return result > 0 ? 1 : 0;
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
 void Scale::setup()
 {
   //ТУТ НАСТРАИВАЕМ ПИНЫ
@@ -71,7 +121,22 @@ void Scale::setup()
     break;
 
     case PROTOCOL_CALIPER:
-      pinMode(clockPin,INPUT);
+    {
+      //pinMode(clockPin,INPUT);
+      
+      // настраиваем вектора прерываний
+      uint8_t recIndex = 0;
+      for(;recIndex < 3; recIndex++)
+      {
+        if(!scaleInterrupts[recIndex].scale) // нашли свободное место в таблице обработчиков
+        {
+          scaleInterrupts[recIndex].scale = this;
+          attachInterrupt(digitalPinToInterrupt(clockPin),scaleInterrupts[recIndex].func,FALLING);
+          break;
+        }
+      } // for
+      
+    }
     break;
   }
 
@@ -103,14 +168,109 @@ void Scale::setup()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void Scale::update()
 {
-  if(zeroFactorWantsToBeSaved)
+  if(active) // читаем данные только тогда, когда активны
+  {
+    switch(scaleType) // в зависимости от протокола - читаем так, или иначе
+    {
+      case PROTOCOL_21_BIT: // Чтение протокола 21-бит вызывается само через нужные интервалы, мы вручную тактируем и читаем, поэтому здесь ничего делать - не надо
+      {
+        // NOP
+      }
+      break; // PROTOCOL_21_BIT
+  
+      case PROTOCOL_CALIPER:
+      {
+          //TODO: здесь проверяем, надо ли читать следующий бит
+          if(wantNextCaliperBit)
+          {
+            // произошло прерывание по спаду фронта на линии тактирования, нам надо прочитать линию данных.
+            // первый бит - мы всегда игнорируем, в 21-м бите - знак (0 => +, 1 => -), в 24-м бите - единицы измерения (0 => mm, 1 => inch).
+            // данные передаются младшим битом вперёд, в сотых долях миллиметра.          
+            
+            wantNextCaliperBit = false; // сначала сбрасываем флаг необходимости прочесть следующий бит
+  
+            DBG(F("Want to read caliper bit #"));
+            DBGLN(caliperBitNumber);
+            
+            caliperBitNumber++;
+  
+            // прочитали значение бита
+            uint8_t reading = readNextBit_CaliperProtocol();
+  
+            if(caliperBitNumber < 2) // первый бит, он всегда 1, мы его игнорируем, здесь просто подготавливаем переменные к дальнейшему чтению
+            {
+              DBG(F("FIRST BIT, VALUE="));
+              DBGLN(reading);
+              
+              dataToRead = 0; // обнуляем результат, куда будем читать
+              caliperValueSign = 1; // обнуляем знак
+            }
+            else
+            {
+               // следующие биты, читаем
+               
+               if(caliperBitNumber == 21) // бит знака
+               {                 
+                 if(reading)
+                  caliperValueSign = -1;
+                 else
+                  caliperValueSign = 1;
+  
+                 DBG(F("SIGN BIT: "));
+                 DBGLN(caliperValueSign);
+                                 
+               } // if(caliperBitNumber == 21)
+               else
+               if(caliperBitNumber == 24) // последний бит
+               {
+                  // последний бит, там единицы измерения, пока мы его тупо игнорируем, т.к. у нас линейка, а не штангенциркуль.
+                  // но в любом случае - на этом бите надо сбрасывать счётчик бит, и сигнализировать об изменениях.
+  
+                  caliperBitNumber = 0; // обнуляем счётчик бит, в следующий раз читать начнём сначала
+  
+                  // рассчитываем окончательное значение c учётом знака
+                  dataToRead *= caliperValueSign;
+                  caliperValueSign = 1;
+  
+                  // выводим его для теста в Serial
+                  DBG(F("LAST BIT, caliper value: "));
+                  DBGLN(dataToRead);
+  
+                    bool hasChanges = (dataToRead != rawData);
+                    rawData = dataToRead;
+                    dataToRead = 0;
+                  
+                    if(hasChanges) // были изменения, сигнализируем
+                    {
+                      Events.raise(this,EventScaleDataChanged,this);
+                    }                
+                
+               } // if(caliperBitNumber == 24)
+               else
+               {
+                 // тут просто читаем биты и складываем их в чиселку, не забывая про LSB, т.е. младший бит - идёт в данных первым
+                 dataToRead |= ( reading << (caliperBitNumber-1) );
+               }
+               
+            } // else
+          } // if(wantNextCaliperBit)
+      }
+      break; // PROTOCOL_CALIPER
+      
+    }  // switch
+  } // if(active)
+
+
+  // проверяем, не надо ли сохранить фактор нуля, делаем это в самом конце, потому что запись в EEPROM - мееедленная.
+  // делаем это также только тогда, когда все данные с линейки прочитаны, чтобы не пропустить значащих бит.
+  if(zeroFactorWantsToBeSaved && caliperBitNumber < 1)
   {
     zeroFactorWantsToBeSaved = false;
     
     DBGLN(F("SAVE ZERO FACTOR !"));
     
     Settings.write(eepromAddress,zeroFactor);
-  }
+  }   
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void Scale::switchZERO()
@@ -168,24 +328,24 @@ void Scale::read()
 
   switch(scaleType) // в зависимости от протокола - читаем так, или иначе
   {
-    case PROTOCOL_21_BIT:
+    case PROTOCOL_21_BIT: // читаем протокол 21-бит, НЕ ТЕСТИРОВАНО ЗА НЕИМЕНИЕМ ТАКОЙ ЛИНЕЙКИ !!!
     {
-        beginRead21BitProtocol();
+        beginRead_21BitProtocol();
         
         for(int32_t bitNum=0;bitNum<21; bitNum++)
             {
-              strobe21BitProtocol();
-              readBit21BitProtocol(bitNum, bitNum > 19);
+              strobe_21BitProtocol();
+              readBit_21BitProtocol(bitNum, bitNum > 19);
               delayMicroseconds(STROBE_DURATION);        
             } // for      
             
-        endRead21BitProtocol();
+        endRead_21BitProtocol();
     }
     break; // PROTOCOL_21_BIT
 
-    case PROTOCOL_CALIPER:
+    case PROTOCOL_CALIPER: // ЧТЕНИЕ ПРОТОКОЛА КИТАЙСКИХ ШТАНГЕНОВ - ИДЁТ ПО ФАКТУ ПРЕРЫВАНИЯ ПО СПАДУ ФРОНТА
     {
-        //TODO: NOT IMPLEMENTED !!!
+        // NOP
     }
     break; // PROTOCOL_CALIPER
     
@@ -193,19 +353,19 @@ void Scale::read()
       
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void Scale::strobe21BitProtocol()
+void Scale::strobe_21BitProtocol()
 {
     digitalWrite(clockPin, STROBE_HIGH_LEVEL);
     delayMicroseconds(STROBE_DURATION);  
     digitalWrite(clockPin, !STROBE_HIGH_LEVEL);
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void Scale::beginRead21BitProtocol()
+void Scale::beginRead_21BitProtocol()
 {      
   dataToRead = 0;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void Scale::endRead21BitProtocol()
+void Scale::endRead_21BitProtocol()
 {
   #ifdef DEBUG_RANDOM_GENERATE_VALUES
   
@@ -227,7 +387,7 @@ void Scale::endRead21BitProtocol()
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void Scale::readBit21BitProtocol(int32_t bitNum, bool isLastBit)
+void Scale::readBit_21BitProtocol(int32_t bitNum, bool isLastBit)
 {
   int32_t readed = digitalRead(dataPin);
   
@@ -441,39 +601,14 @@ void ScalesClass::update()
   if(millis() - updateTimer > SCALES_UPDATE_INTERVAL)
   {
 
-     for(size_t i=0;i<cnt;i++)
+    for(size_t i=0;i<cnt;i++)
     {
       if(data[i]->isActive())
         data[i]->read();
     }
-    /*
-    for(size_t i=0;i<cnt;i++)
-    {
-      if(data[i]->isActive())
-        data[i]->beginRead();
-    }
 
-    for(int32_t bitNum=0;bitNum<21; bitNum++)
-    {
-        strobe();
 
-        for(size_t i=0;i<cnt;i++)
-        {
-          if(data[i]->isActive())
-            data[i]->readBit(bitNum, bitNum > 19);
-        } // for
-
-        delayMicroseconds(STROBE_DURATION);
-
-    } // for
-
-    for(size_t i=0;i<cnt;i++)
-    {
-      if(data[i]->isActive())
-        data[i]->endRead();
-    }
-    */
-
+    // если попросили выводить сырые данные - выводим их в Serial раз в N времени
     #ifdef DUMP_SCALE_DATA_TO_SERIAL
     
       for(size_t i=0;i<cnt;i++)
@@ -492,7 +627,8 @@ void ScalesClass::update()
     #endif // DUMP_SCALE_DATA_TO_SERIAL
 
     updateTimer = millis();
-  }
+    
+  } // if(millis() - updateTimer > SCALES_UPDATE_INTERVAL)
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 

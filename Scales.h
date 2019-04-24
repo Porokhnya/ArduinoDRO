@@ -37,6 +37,8 @@ typedef enum
 #define PROTOCOL_21_BIT 1
 #define PROTOCOL_CALIPER 2
 //--------------------------------------------------------------------------------------------------------------------------------------
+typedef void (*PInterruptFunc)(void);
+//--------------------------------------------------------------------------------------------------------------------------------------
 class Scale
 {
   public:
@@ -89,6 +91,14 @@ class Scale
 
     char FILLED_CHARS[DIGITS_PLACES+1]; // последные известные значения разрядов
 
+
+    // служебные функции
+    static void int1();
+    static void int2();
+    static void int3();
+    static void wantReadBit_CaliperProtocol(uint8_t recIndex);
+
+
     protected:
 
       friend class ScalesClass;
@@ -97,10 +107,17 @@ class Scale
   private:
 
       // 21-bit protocol related
-      void beginRead21BitProtocol();
-      void readBit21BitProtocol(int32_t bitNum, bool isLastBit);
-      void endRead21BitProtocol();
-      void strobe21BitProtocol();
+      void beginRead_21BitProtocol();
+      void readBit_21BitProtocol(int32_t bitNum, bool isLastBit);
+      void endRead_21BitProtocol();
+      void strobe_21BitProtocol();
+
+      // caliper protocol related
+      void wantNextBit_CaliperProtocol();
+      uint8_t readNextBit_CaliperProtocol();
+      bool wantNextCaliperBit;
+      uint8_t caliperBitNumber;
+      int8_t caliperValueSign;
   
     const char* label;
     const char* absButtonCaption;
@@ -140,6 +157,13 @@ class Scale
 };
 //--------------------------------------------------------------------------------------------------------------------------------------
 typedef Vector<Scale*> ScaleVec;
+//--------------------------------------------------------------------------------------------------------------------------------------
+typedef struct
+{
+  Scale* scale;
+  PInterruptFunc func;
+  
+} InterruptRecord;
 //--------------------------------------------------------------------------------------------------------------------------------------
 class ScalesClass
 {
