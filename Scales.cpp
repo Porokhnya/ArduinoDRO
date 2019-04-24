@@ -19,7 +19,7 @@ bool ScaleFormattedData::operator!=(const ScaleFormattedData& rhs)
 // Scale
 //--------------------------------------------------------------------------------------------------------------------------------------
 Scale::Scale(AxisKind _kind, uint16_t _eepromAddress, const char* _label, const char* _absButtonCaption, const char* _relButtonCaption, 
-const char* _zeroButtonCaption, const char* _rstZeroButtonCaption, char _axis, uint8_t _dataPin,  bool _active)
+const char* _zeroButtonCaption, const char* _rstZeroButtonCaption, char _axis, uint8_t _dataPin,  uint8_t _clockPin, uint8_t _scaleType, bool _active)
 {
    kind = _kind;
    eepromAddress = _eepromAddress;
@@ -41,6 +41,9 @@ const char* _zeroButtonCaption, const char* _rstZeroButtonCaption, char _axis, u
 
 
    dataPin = _dataPin;
+   clockPin = _clockPin;
+   scaleType = _scaleType;
+   
    axis = _axis;
    rawData = NO_SCALE_DATA;
    axisY = -1;
@@ -60,6 +63,17 @@ void Scale::setup()
 {
   //ТУТ НАСТРАИВАЕМ ПИНЫ
   pinMode(dataPin,INPUT);
+
+  switch(scaleType)
+  {
+    case PROTOCOL_21_BIT:
+      pinMode(clockPin,OUTPUT);
+    break;
+
+    case PROTOCOL_CALIPER:
+      pinMode(clockPin,INPUT);
+    break;
+  }
 
   // читаем сохранённый ZERO-фактор
   DBG(F("Read saved ZERO factor for "));
@@ -147,19 +161,52 @@ void Scale::switchABS()
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void Scale::beginRead()
+void Scale::read()
 {
-  if(!active)
+  if(!active) // выключены, пустышка
     return;
+
+  switch(scaleType) // в зависимости от протокола - читаем так, или иначе
+  {
+    case PROTOCOL_21_BIT:
+    {
+        beginRead21BitProtocol();
+        
+        for(int32_t bitNum=0;bitNum<21; bitNum++)
+            {
+              strobe21BitProtocol();
+              readBit21BitProtocol(bitNum, bitNum > 19);
+              delayMicroseconds(STROBE_DURATION);        
+            } // for      
+            
+        endRead21BitProtocol();
+    }
+    break; // PROTOCOL_21_BIT
+
+    case PROTOCOL_CALIPER:
+    {
+        //TODO: NOT IMPLEMENTED !!!
+    }
+    break; // PROTOCOL_CALIPER
+    
+  }  // switch
       
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void Scale::strobe21BitProtocol()
+{
+    digitalWrite(clockPin, STROBE_HIGH_LEVEL);
+    delayMicroseconds(STROBE_DURATION);  
+    digitalWrite(clockPin, !STROBE_HIGH_LEVEL);
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void Scale::beginRead21BitProtocol()
+{      
   dataToRead = 0;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void Scale::endRead()
+void Scale::endRead21BitProtocol()
 {
-  if(!active)
-    return;
-
   #ifdef DEBUG_RANDOM_GENERATE_VALUES
   
      startValue += DEBUG_RANDOM_GENERATE_STEP;
@@ -180,11 +227,8 @@ void Scale::endRead()
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-void Scale::readBit(int32_t bitNum, bool isLastBit)
+void Scale::readBit21BitProtocol(int32_t bitNum, bool isLastBit)
 {
-  if(!active)
-    return;
-
   int32_t readed = digitalRead(dataPin);
   
   if(!isLastBit)
@@ -323,21 +367,9 @@ Scale* ScalesClass::getScale(AxisKind kind)
   return NULL;
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void ScalesClass::strobe()
-{
-  digitalWrite(SCALE_CLOCK_PIN, STROBE_HIGH_LEVEL);
-
-  delayMicroseconds(STROBE_DURATION);
-  
-  digitalWrite(SCALE_CLOCK_PIN, !STROBE_HIGH_LEVEL);
-}
-//--------------------------------------------------------------------------------------------------------------------------------------
 void ScalesClass::setup()
 {
   
-    // настраиваем пин строба
-    pinMode(SCALE_CLOCK_PIN,OUTPUT);
-
     Scale* xData = new Scale(akX, ZERO_FACTOR_BASE_STORE_ADDRESS,
       #ifdef DISPLAY_COLON_AFTER_AXIS_NAME
       "06"
@@ -345,7 +377,7 @@ void ScalesClass::setup()
       "0"
       #endif
       
-      ,X_SCALE_ABS_CAPTION,X_SCALE_REL_CAPTION,X_SCALE_ZERO_CAPTION,X_SCALE_RST_ZERO_CAPTION,'X',X_SCALE_DATA_PIN,
+      ,X_SCALE_ABS_CAPTION,X_SCALE_REL_CAPTION,X_SCALE_ZERO_CAPTION,X_SCALE_RST_ZERO_CAPTION,'X',X_SCALE_DATA_PIN,X_SCALE_CLOCK_PIN,X_SCALE_TYPE,
       
     #ifdef USE_X_SCALE
       true
@@ -364,7 +396,7 @@ void ScalesClass::setup()
       "1"
       #endif 
            
-      ,Y_SCALE_ABS_CAPTION,Y_SCALE_REL_CAPTION,Y_SCALE_ZERO_CAPTION,Y_SCALE_RST_ZERO_CAPTION,'Y',Y_SCALE_DATA_PIN,
+      ,Y_SCALE_ABS_CAPTION,Y_SCALE_REL_CAPTION,Y_SCALE_ZERO_CAPTION,Y_SCALE_RST_ZERO_CAPTION,'Y',Y_SCALE_DATA_PIN,Y_SCALE_CLOCK_PIN,Y_SCALE_TYPE,
       
     #ifdef USE_Y_SCALE
       true
@@ -383,7 +415,7 @@ void ScalesClass::setup()
       "2"
       #endif
       
-      ,Z_SCALE_ABS_CAPTION,Z_SCALE_REL_CAPTION,Z_SCALE_ZERO_CAPTION,Z_SCALE_RST_ZERO_CAPTION,'Z',Z_SCALE_DATA_PIN,
+      ,Z_SCALE_ABS_CAPTION,Z_SCALE_REL_CAPTION,Z_SCALE_ZERO_CAPTION,Z_SCALE_RST_ZERO_CAPTION,'Z',Z_SCALE_DATA_PIN,Z_SCALE_CLOCK_PIN,Z_SCALE_TYPE,
 
     #ifdef USE_Z_SCALE
       true
@@ -408,7 +440,13 @@ void ScalesClass::update()
 
   if(millis() - updateTimer > SCALES_UPDATE_INTERVAL)
   {
-    
+
+     for(size_t i=0;i<cnt;i++)
+    {
+      if(data[i]->isActive())
+        data[i]->read();
+    }
+    /*
     for(size_t i=0;i<cnt;i++)
     {
       if(data[i]->isActive())
@@ -434,6 +472,7 @@ void ScalesClass::update()
       if(data[i]->isActive())
         data[i]->endRead();
     }
+    */
 
     #ifdef DUMP_SCALE_DATA_TO_SERIAL
     

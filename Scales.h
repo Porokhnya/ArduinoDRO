@@ -34,11 +34,14 @@ typedef enum
   
 } MeasureMode;
 //--------------------------------------------------------------------------------------------------------------------------------------
+#define PROTOCOL_21_BIT 1
+#define PROTOCOL_CALIPER 2
+//--------------------------------------------------------------------------------------------------------------------------------------
 class Scale
 {
   public:
 
-    Scale(AxisKind kind, uint16_t eepromAddress, const char* label, const char* absButtonCaption, const char* relButtonCaption,const char* zeroButtonCaption, const char* rstZeroButtonCaption, char axis, uint8_t dataPin, bool active);
+    Scale(AxisKind kind, uint16_t eepromAddress, const char* label, const char* absButtonCaption, const char* relButtonCaption,const char* zeroButtonCaption, const char* rstZeroButtonCaption, char axis, uint8_t dataPin, uint8_t clockPin, uint8_t type, bool active);
 
     void setup();
     void update();
@@ -89,12 +92,15 @@ class Scale
     protected:
 
       friend class ScalesClass;
-      void beginRead();
-      void readBit(int32_t bitNum, bool isLastBit);
-      void endRead();
-
+      void read();
   
   private:
+
+      // 21-bit protocol related
+      void beginRead21BitProtocol();
+      void readBit21BitProtocol(int32_t bitNum, bool isLastBit);
+      void endRead21BitProtocol();
+      void strobe21BitProtocol();
   
     const char* label;
     const char* absButtonCaption;
@@ -113,7 +119,8 @@ class Scale
     int32_t absFactor;
     
     int32_t rawData, dataToRead;
-    uint8_t dataPin;
+    uint8_t dataPin, clockPin, scaleType;
+
 
     int axisY;
     int axisHeight;
@@ -140,8 +147,6 @@ private:
   ScaleVec data;
 
   uint32_t updateTimer;
-
-  void strobe();
   
 public:
 
