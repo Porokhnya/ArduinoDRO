@@ -130,6 +130,7 @@
 
 #define STROBE_DURATION 5 // длительность строба на линии DATA, микросекунд (актуально для линеек с протоколом 21-бит)
 #define DISPLAY_COLON_AFTER_AXIS_NAME // закомментировать, если не надо отображать двоеточие после названия оси
+#define SCALE_NO_DATA_TIMEOUT 1000 // через сколько миллисекунд сбрасывать показания (если с линейки в течение этого времени нет данных)
 
 // следующие две настройки нужны, если применяется схема, которая инвертирует любой из сигналов.
 // по умолчанию считается, что высокий уровень на пине SCALE_CLOCK_PIN - поднимает шину в высокий уровень,
@@ -140,13 +141,13 @@
 
 #define USE_X_SCALE // закомментировать, если не нужно использовать линейку по X
 #define X_SCALE_TYPE 2 // тип линейки по X: 1 - 21-битный протокол iGaging, 2 - протокол китайских штангенов (линейки Shahe с али)
-#define X_SCALE_DATA_PIN 43 // номер пина DATA для линейки по X
-#define X_SCALE_CLOCK_PIN 42 // номер пина для строба линейки по Х
+#define X_SCALE_DATA_PIN 42 // номер пина DATA для линейки по X
+#define X_SCALE_CLOCK_PIN 43 // номер пина для строба линейки по Х
 #define X_SCALE_ABS_CAPTION "ABS" // подпись на кнопке абсолютного значения оси X (можно на русском)
 #define X_SCALE_REL_CAPTION "REL" // подпись на кнопке относительного значения оси X (можно на русском)
 #define X_SCALE_ZERO_CAPTION "ZERO" // подпись на кнопке обнуления значения оси X (можно на русском)
 #define X_SCALE_RST_ZERO_CAPTION "RST" // подпись на кнопке сброса обнуления оси X (можно на русском)
-//#define USE_X_RAD_DIA_BUTTON // закомментировать, если для оси X не нужна кнопка переключения "радиус/диаметр"
+#define USE_X_RAD_DIA_BUTTON // закомментировать, если для оси X не нужна кнопка переключения "радиус/диаметр"
 #define X_RAD_CAPTION "X: РАДИУС " // подпись на кнопке переключения "радиус" оси X (умножение на 2 - в режиме диаметра, без умножений - в режиме радиуса), можно на русском
 #define X_DIA_CAPTION "X: ДИАМЕТР" // подпись на кнопке переключения "диаметр" оси X (умножение на 2 - в режиме диаметра, без умножений - в режиме радиуса), можно на русском
 #define X_RAD_DIA_BUTTON_COLOR VGA_BLUE // цвет кнопки переключения "радиус/диаметр" для оси X
@@ -154,16 +155,16 @@
 #define X_RAD_DIA_BUTTON_DIA_SELECTED_BUTTON_COLOR VGA_GREEN // цвет кнопки переключения "радиус/диаметр" в режиме выбранного диаметра, для оси X
 #define X_RAD_DIA_BUTTON_DIA_SELECTED_FONT_COLOR VGA_WHITE // цвет текста кнопки переключения "радиус/диаметр" в режиме выбранного диаметра, для оси X
 //#define USE_X_ABS_HARDWARE_BUTTON // закомментировать, если не нужно использовать для оси X железную кнопку "ABS", дублирующую экранную кнопку
-#define X_ABS_HARDWARE_BUTTON_PIN 10 // 46 // номер пина для железной кнопки "ABS" для оси X
+#define X_ABS_HARDWARE_BUTTON_PIN 7 // 46 // номер пина для железной кнопки "ABS" для оси X
 #define X_ABS_HARDWARE_BUTTON_TRIGGERED_LEVEL LOW // уровень срабатывания кнопки "ABS" для оси X
 //#define USE_X_ZERO_HARDWARE_BUTTON // закомментировать, если не нужно использовать для оси X железную кнопку "ZERO", дублирующую экранную кнопку
-#define X_ZERO_HARDWARE_BUTTON_PIN 11 // 47 // номер пина для железной кнопки "ZERO" для оси X
+#define X_ZERO_HARDWARE_BUTTON_PIN 8 // 47 // номер пина для железной кнопки "ZERO" для оси X
 #define X_ZERO_HARDWARE_BUTTON_TRIGGERED_LEVEL LOW // уровень срабатывания кнопки "ZERO" для оси X
 
 //#define USE_Y_SCALE // закомментировать, если не нужно использовать линейку по Y
 #define Y_SCALE_TYPE 2 // тип линейки по Y: 1 - 21-битный протокол iGaging, 2 - протокол китайских штангенов (линейки Shahe с али)
 #define Y_SCALE_DATA_PIN 44 // номер пина DATA для линейки по Y
-#define Y_SCALE_CLOCK_PIN 42 // номер пина для строба линейки по Y
+#define Y_SCALE_CLOCK_PIN 45 // номер пина для строба линейки по Y
 #define Y_SCALE_ABS_CAPTION "ABS" // подпись на кнопке абсолютного значения оси Y (можно на русском)
 #define Y_SCALE_REL_CAPTION "REL" // подпись на кнопке относительного значения оси Y (можно на русском)
 #define Y_SCALE_ZERO_CAPTION "ZERO" // подпись на кнопке обнуления значения оси Y (можно на русском)
@@ -176,16 +177,16 @@
 #define Y_RAD_DIA_BUTTON_DIA_SELECTED_BUTTON_COLOR VGA_GREEN // цвет кнопки переключения "радиус/диаметр" в режиме выбранного диаметра, для оси Y
 #define Y_RAD_DIA_BUTTON_DIA_SELECTED_FONT_COLOR VGA_WHITE // цвет текста кнопки переключения "радиус/диаметр" в режиме выбранного диаметра, для оси Y
 //#define USE_Y_ABS_HARDWARE_BUTTON // закомментировать, если не нужно использовать для оси Y железную кнопку "ABS", дублирующую экранную кнопку
-#define Y_ABS_HARDWARE_BUTTON_PIN 48 // номер пина для железной кнопки "ABS" для оси Y
+#define Y_ABS_HARDWARE_BUTTON_PIN 9 // номер пина для железной кнопки "ABS" для оси Y
 #define Y_ABS_HARDWARE_BUTTON_TRIGGERED_LEVEL LOW // уровень срабатывания кнопки "ABS" для оси Y
 //#define USE_Y_ZERO_HARDWARE_BUTTON // закомментировать, если не нужно использовать для оси Y железную кнопку "ZERO", дублирующую экранную кнопку
-#define Y_ZERO_HARDWARE_BUTTON_PIN 49 // номер пина для железной кнопки "ZERO" для оси Y
+#define Y_ZERO_HARDWARE_BUTTON_PIN 10 // номер пина для железной кнопки "ZERO" для оси Y
 #define Y_ZERO_HARDWARE_BUTTON_TRIGGERED_LEVEL LOW // уровень срабатывания кнопки "ZERO" для оси Y
 
 //#define USE_Z_SCALE // закомментировать, если не нужно использовать линейку по Z
 #define Z_SCALE_TYPE 2 // тип линейки по Y: 1 - 21-битный протокол iGaging, 2 - протокол китайских штангенов (линейки Shahe с али)
-#define Z_SCALE_DATA_PIN 45 // номер пина DATA для линейки по Z
-#define Z_SCALE_CLOCK_PIN 42 // номер пина для строба линейки по Z
+#define Z_SCALE_DATA_PIN 46 // номер пина DATA для линейки по Z
+#define Z_SCALE_CLOCK_PIN 47 // номер пина для строба линейки по Z
 #define Z_SCALE_ABS_CAPTION "ABS" // подпись на кнопке абсолютного/относительного значения оси Z (можно на русском)
 #define Z_SCALE_REL_CAPTION "REL" // подпись на кнопке относительного значения оси Z (можно на русском)
 #define Z_SCALE_ZERO_CAPTION "ZERO" // подпись на кнопке обнуления значения оси Z (можно на русском)
@@ -198,10 +199,10 @@
 #define Z_RAD_DIA_BUTTON_DIA_SELECTED_BUTTON_COLOR VGA_GREEN // цвет кнопки переключения "радиус/диаметр" в режиме выбранного диаметра, для оси Z
 #define Z_RAD_DIA_BUTTON_DIA_SELECTED_FONT_COLOR VGA_WHITE // цвет текста кнопки переключения "радиус/диаметр" в режиме выбранного диаметра, для оси Z
 //#define USE_Z_ABS_HARDWARE_BUTTON // закомментировать, если не нужно использовать для оси Z железную кнопку "ABS", дублирующую экранную кнопку
-#define Z_ABS_HARDWARE_BUTTON_PIN 50 // номер пина для железной кнопки "ABS" для оси Z
+#define Z_ABS_HARDWARE_BUTTON_PIN 11 // номер пина для железной кнопки "ABS" для оси Z
 #define Z_ABS_HARDWARE_BUTTON_TRIGGERED_LEVEL LOW // уровень срабатывания кнопки "ABS" для оси Z
 //#define USE_Z_ZERO_HARDWARE_BUTTON // закомментировать, если не нужно использовать для оси Z железную кнопку "ZERO", дублирующую экранную кнопку
-#define Z_ZERO_HARDWARE_BUTTON_PIN 51 // номер пина для железной кнопки "ZERO" для оси Z
+#define Z_ZERO_HARDWARE_BUTTON_PIN 12 // номер пина для железной кнопки "ZERO" для оси Z
 #define Z_ZERO_HARDWARE_BUTTON_TRIGGERED_LEVEL LOW // уровень срабатывания кнопки "ZERO" для оси Z
 
 #define HARDWARE_BUTTONS_TIMER Timer3 // какой таймер использовать для опроса кнопок

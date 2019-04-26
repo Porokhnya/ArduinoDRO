@@ -115,9 +115,10 @@ class Scale
       // caliper protocol related
       void wantNextBit_CaliperProtocol();
       uint8_t readNextBit_CaliperProtocol();
-      bool wantNextCaliperBit;
       uint8_t caliperBitNumber;
-      int8_t caliperValueSign;
+      bool caliperDataReady;
+      uint32_t lastCaliperHighTime;
+      uint32_t lastDataReadyAt;
   
     const char* label;
     const char* absButtonCaption;

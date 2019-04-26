@@ -487,6 +487,7 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
     memset(scale->FILLED_CHARS,-1,sizeof(scale->FILLED_CHARS));
 
     axisX -= (DIGITS_PLACES*xyzFontWidth + XYZ_FONT_DOT_WIDTH);
+    int leftBorder = axisX;
 
     hal->setColor(scale->isActive() ? AXIS_NO_DATA_COLOR : INACTIVE_AXIS_COLOR);
      
@@ -511,8 +512,10 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
       axisX += xyzFontWidth;
     } // for
 
+    // говорим, что якобы заняли последним значением все разряды, чтобы когда данные появятся - перерисовать всю шкалу
+    scale->setLastValueX(leftBorder);
 
-  } // if
+  } // if no data from scale
   else
   {
 
@@ -584,8 +587,7 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
       countDigits++;
       valCpy /= 10;
     }
-
-
+    
     for(int z=0;z<countDigits;z++)
     {
       curDigit[0] = (absVal/delimiter % 10) + '0';
@@ -627,9 +629,9 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
     }
 
     // обнуляем все разряды слева
-    while(--digitPos > 0)
+    while(digitPos > 0)
     {
-      scale->FILLED_CHARS[digitPos] = -1;
+      scale->FILLED_CHARS[digitPos--] = -1;
     }
 
     // теперь выясняем - если длина последних данных была больше, чем текущих - то закрашиваем прямоугольник слева

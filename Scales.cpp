@@ -39,16 +39,15 @@ const char* _zeroButtonCaption, const char* _rstZeroButtonCaption, char _axis, u
    zeroButtonIndex = -1;
    absButtonIndex = -1;
 
-    wantNextCaliperBit = false;
     caliperBitNumber = 0;
-    caliperValueSign = 1;
+    caliperDataReady = false;
+    lastCaliperHighTime = 0;
 
    isAbsFactorEnabled = false;
    absFactor = 0;
 
    isZeroFactorEnabled = false;
    zeroFactor = 0;
-
 
    dataPin = _dataPin;
    clockPin = _clockPin;
@@ -60,7 +59,6 @@ const char* _zeroButtonCaption, const char* _rstZeroButtonCaption, char _axis, u
    axisHeight = -1;
    dataXCoord = -1;
    
-
    active = _active;
    
    lastValueX = 5000;
@@ -86,26 +84,49 @@ void Scale::int3()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void Scale::wantReadBit_CaliperProtocol(uint8_t recIndex)
 {
-  if(scaleInterrupts[recIndex].scale)
+  Scale* s = scaleInterrupts[recIndex].scale;
+  if(s)
   {
-    scaleInterrupts[recIndex].scale->wantNextBit_CaliperProtocol();
+    s->wantNextBit_CaliperProtocol();
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void Scale::wantNextBit_CaliperProtocol()
 {
-  //взводим флаг, что надо прочитать следующий бит, поскольку пойман спад фронта
-  wantNextCaliperBit = true;
+  // это прерывание вызывается по изменению уровня. Здесь надо понять, что мы можем начинать читать значения.
+
+  uint8_t level = digitalRead(clockPin);
+  
+  if(level == LOW) 
+  {
+    if(millis() - lastCaliperHighTime > 80) // низкий уровень впервые за долгое время, это начало фрейма
+    {
+      // начало порции данных, подготавливаем переменные
+      dataToRead = 0;
+      caliperBitNumber = 0;  
+    }
+    
+    uint8_t readedCaliperBit = readNextBit_CaliperProtocol();
+    dataToRead |= ( readedCaliperBit << caliperBitNumber );
+    caliperBitNumber++;
+
+    if(caliperBitNumber == 24) // всё прочитали, сигнализируем об этом
+    {
+      caliperBitNumber = 0; // обнуляем счётчик бит, в следующий раз читать начнём сначала
+      caliperDataReady = true;
+    }
+  }  //if(level == LOW) 
+  else
+  {
+     // высокий уровень, запоминаем время
+     lastCaliperHighTime = millis();
+  }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 uint8_t Scale::readNextBit_CaliperProtocol()
 {
   uint8_t result = 0;
-
-  // читаем 3 раза, чтобы точно попасть в уровень  
-  for(uint8_t i=0;i<3;i++)
-    result += digitalRead(dataPin);
-
+  result = digitalRead(dataPin);
   return result > 0 ? 1 : 0;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
@@ -121,9 +142,7 @@ void Scale::setup()
     break;
 
     case PROTOCOL_CALIPER:
-    {
-      //pinMode(clockPin,INPUT);
-      
+    {      
       // настраиваем вектора прерываний
       uint8_t recIndex = 0;
       for(;recIndex < 3; recIndex++)
@@ -131,7 +150,7 @@ void Scale::setup()
         if(!scaleInterrupts[recIndex].scale) // нашли свободное место в таблице обработчиков
         {
           scaleInterrupts[recIndex].scale = this;
-          attachInterrupt(digitalPinToInterrupt(clockPin),scaleInterrupts[recIndex].func,FALLING);
+          attachInterrupt(digitalPinToInterrupt(clockPin),scaleInterrupts[recIndex].func,CHANGE);
           break;
         }
       } // for
@@ -180,80 +199,77 @@ void Scale::update()
   
       case PROTOCOL_CALIPER:
       {
-          //TODO: здесь проверяем, надо ли читать следующий бит
-          if(wantNextCaliperBit)
+        
+          if(caliperDataReady) // данные готовы, быренько их копируем к себе
           {
-            // произошло прерывание по спаду фронта на линии тактирования, нам надо прочитать линию данных.
-            // первый бит - мы всегда игнорируем, в 21-м бите - знак (0 => +, 1 => -), в 24-м бите - единицы измерения (0 => mm, 1 => inch).
-            // данные передаются младшим битом вперёд, в сотых долях миллиметра.          
+            noInterrupts();
+            int32_t thisData = dataToRead;
+            interrupts();
             
-            wantNextCaliperBit = false; // сначала сбрасываем флаг необходимости прочесть следующий бит
-  
-            DBG(F("Want to read caliper bit #"));
-            DBGLN(caliperBitNumber);
+            caliperDataReady = false;
+            lastDataReadyAt = millis(); // запоминаем, когда пришли последние данные
+
+            // в thisData у нас лежит битовый массив, который надо преобразовать в значение в сотых долях миллиметра
+            int32_t formattedData = 0;
+
+            // форматируем значение
+            for(uint8_t i=1;i<=20;i++) 
+            {                
+              formattedData +=  pow(2, i-1) * ( thisData & (1 << i) ? 1 : 0  );
+            }            
+
+            // знак лежит в 22-м бите
+            if(thisData & (1 << 21))
+              formattedData *= -1;
+
+            // остальные биты - нам пох, потому что линейка, которая у меня - выдаёт значение в сотых долях миллиметра, именно так мы и храним
             
-            caliperBitNumber++;
-  
-            // прочитали значение бита
-            uint8_t reading = readNextBit_CaliperProtocol();
-  
-            if(caliperBitNumber < 2) // первый бит, он всегда 1, мы его игнорируем, здесь просто подготавливаем переменные к дальнейшему чтению
-            {
-              DBG(F("FIRST BIT, VALUE="));
-              DBGLN(reading);
+            bool hasChanges = (formattedData != rawData);
+            
+            rawData = formattedData;
+
+            /*
+
+            #ifdef _DEBUG
+
+              String s;
+              for(uint8_t i=0;i<24;i++)
+              {
+                if(thisData & (1 << i))
+                  s += '1';
+                else
+                  s += '0';
+
+                s += ' ';
+              } // for
+              DBG(F("Scale data: "));
+              DBG(s);
+              DBG(F("; raw="));
+              DBG(thisData);
+              DBG(F("; formatted="));
+              DBGLN(formattedData);
               
-              dataToRead = 0; // обнуляем результат, куда будем читать
-              caliperValueSign = 1; // обнуляем знак
-            }
-            else
+            #endif // _DEBUG
+            */
+          
+            if(hasChanges) // были изменения, сигнализируем
             {
-               // следующие биты, читаем
-               
-               if(caliperBitNumber == 21) // бит знака
-               {                 
-                 if(reading)
-                  caliperValueSign = -1;
-                 else
-                  caliperValueSign = 1;
-  
-                 DBG(F("SIGN BIT: "));
-                 DBGLN(caliperValueSign);
-                                 
-               } // if(caliperBitNumber == 21)
-               else
-               if(caliperBitNumber == 24) // последний бит
-               {
-                  // последний бит, там единицы измерения, пока мы его тупо игнорируем, т.к. у нас линейка, а не штангенциркуль.
-                  // но в любом случае - на этом бите надо сбрасывать счётчик бит, и сигнализировать об изменениях.
-  
-                  caliperBitNumber = 0; // обнуляем счётчик бит, в следующий раз читать начнём сначала
-  
-                  // рассчитываем окончательное значение c учётом знака
-                  dataToRead *= caliperValueSign;
-                  caliperValueSign = 1;
-  
-                  // выводим его для теста в Serial
-                  DBG(F("LAST BIT, caliper value: "));
-                  DBGLN(dataToRead);
-  
-                    bool hasChanges = (dataToRead != rawData);
-                    rawData = dataToRead;
-                    dataToRead = 0;
-                  
-                    if(hasChanges) // были изменения, сигнализируем
-                    {
-                      Events.raise(this,EventScaleDataChanged,this);
-                    }                
-                
-               } // if(caliperBitNumber == 24)
-               else
-               {
-                 // тут просто читаем биты и складываем их в чиселку, не забывая про LSB, т.е. младший бит - идёт в данных первым
-                 dataToRead |= ( reading << (caliperBitNumber-1) );
-               }
-               
-            } // else
-          } // if(wantNextCaliperBit)
+              Events.raise(this,EventScaleDataChanged,this);
+            }            
+            
+          } // caliperDataReady
+
+          // а тут проверяем - если данных давно нет - сбрасываем
+          if(millis() - lastDataReadyAt > SCALE_NO_DATA_TIMEOUT)
+          {
+            rawData = NO_SCALE_DATA;
+            caliperBitNumber = 0;
+            lastCaliperHighTime = 0;
+            dataToRead = 0;
+            lastDataReadyAt = millis();
+            Events.raise(this,EventScaleDataChanged,this);
+          }
+
       }
       break; // PROTOCOL_CALIPER
       
@@ -451,10 +467,6 @@ ScaleFormattedData Scale::getData(MeasureMode mode, uint8_t multiplier)
   {
     int32_t temp = rawData;
 
-    //TODO: УДАЛИТЬ !!!!
-    // if(getKind() == akX)
-    //  temp = 123456;
-
     if(isZeroFactorEnabled)
     {
       temp -= zeroFactor;
@@ -476,21 +488,23 @@ ScaleFormattedData Scale::getData(MeasureMode mode, uint8_t multiplier)
     }
 
     // применяем мультипликатор
-    fTemp *= multiplier;
+    fTemp *= (1.0*multiplier);
 
     // у нас результат вычисления лежит в сотых долях.
     // его нужно перевести в требуемые доли
 
-    int32_t computed = fTemp;
+    int32_t computed = static_cast<int32_t>(fTemp);
     result.Value = computed;
 
     // теперь дробную часть, с нужным кол-вом знаков
     uint32_t resolution = ( mode == mmMM ? pow(10,MM_RESOLUTION) : pow(10,INCH_RESOLUTION) );
 
     fTemp -= computed;
+    
     fTemp *= resolution;
 
-    result.Fract  = abs(fTemp);    
+    float fabsval = round(fabs(fTemp));
+    result.Fract  = static_cast<uint32_t>(fabsval);
     
   }
   
