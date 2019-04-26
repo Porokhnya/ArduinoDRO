@@ -14,4 +14,3 @@
 
 Исходники шрифта - в папке DOCS. Остальные шрифты - с сайта Rinki-Dink Electronics: http://www.rinkydinkelectronics.com/r_fonts.php
 
-Проект пока только начат, сделана только обвязка работы с дисплеем.
