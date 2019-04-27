@@ -125,12 +125,19 @@ void Scale::wantNextBit_CaliperProtocol()
 //--------------------------------------------------------------------------------------------------------------------------------------
 void Scale::detach()
 {
-  detachInterrupt(digitalPinToInterrupt(clockPin));
+  if(active)
+    detachInterrupt(digitalPinToInterrupt(clockPin));
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void Scale::attach()
 {
-  attachInterrupt(digitalPinToInterrupt(clockPin),scaleInterrupts[interruptIndex].func,CHANGE);
+  if(active)
+  {
+    DBG(F("Attach interrupt for axis "));
+    DBGLN(getAxis());
+    
+    attachInterrupt(digitalPinToInterrupt(clockPin),scaleInterrupts[interruptIndex].func,CHANGE);
+  }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void Scale::setup()
@@ -206,12 +213,12 @@ void Scale::update()
         
           if(caliperDataReady) // данные готовы, быренько их копируем к себе
           {
-            caliperDataReady = false;
             
-           // noInterrupts();
+            //noInterrupts();
+            caliperDataReady = false;
             int32_t thisData = dataToRead;
             uint8_t thisBitNumber = caliperBitNumber;
-           // interrupts();
+            //interrupts();
             
             
             if(thisBitNumber == 0)
@@ -237,8 +244,8 @@ void Scale::update()
               
               rawData = formattedData;
   
-              /*
-  
+              
+            /*
               #ifdef _DEBUG
   
                 String s;
