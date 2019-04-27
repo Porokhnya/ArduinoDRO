@@ -93,41 +93,44 @@ void Scale::wantReadBit_CaliperProtocol(uint8_t recIndex)
 //--------------------------------------------------------------------------------------------------------------------------------------
 void Scale::wantNextBit_CaliperProtocol()
 {
+    
   // это прерывание вызывается по изменению уровня. Здесь надо понять, что мы можем начинать читать значения.
-
   uint8_t level = digitalRead(clockPin);
-  
+    
   if(level == LOW) 
   {
-    if(millis() - lastCaliperHighTime > 80) // низкий уровень впервые за долгое время, это начало фрейма
+    if(micros() - lastCaliperHighTime > 80000) // низкий уровень впервые за долгое время, это начало фрейма
     {
       // начало порции данных, подготавливаем переменные
       dataToRead = 0;
-      caliperBitNumber = 0;  
+      caliperBitNumber = 0;
     }
-    
-    uint8_t readedCaliperBit = readNextBit_CaliperProtocol();
-    dataToRead |= ( readedCaliperBit << caliperBitNumber );
-    caliperBitNumber++;
 
-    if(caliperBitNumber == 24) // всё прочитали, сигнализируем об этом
-    {
-      caliperBitNumber = 0; // обнуляем счётчик бит, в следующий раз читать начнём сначала
-      caliperDataReady = true;
-    }
+      uint8_t readedCaliperBit = digitalRead(dataPin);
+      dataToRead |= ( readedCaliperBit << caliperBitNumber );
+      caliperBitNumber++;
+
+      if(caliperBitNumber == 24) // всё прочитали, сигнализируем об этом
+      {      
+        caliperBitNumber = 0; // обнуляем счётчик бит, в следующий раз читать начнём сначала
+        caliperDataReady = true;        
+      }
   }  //if(level == LOW) 
   else
   {
      // высокий уровень, запоминаем время
-     lastCaliperHighTime = millis();
+     lastCaliperHighTime = micros();
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-uint8_t Scale::readNextBit_CaliperProtocol()
+void Scale::detach()
 {
-  uint8_t result = 0;
-  result = digitalRead(dataPin);
-  return result > 0 ? 1 : 0;
+  detachInterrupt(digitalPinToInterrupt(clockPin));
+}
+//--------------------------------------------------------------------------------------------------------------------------------------
+void Scale::attach()
+{
+  attachInterrupt(digitalPinToInterrupt(clockPin),scaleInterrupts[interruptIndex].func,CHANGE);
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
 void Scale::setup()
@@ -149,8 +152,9 @@ void Scale::setup()
       {
         if(!scaleInterrupts[recIndex].scale) // нашли свободное место в таблице обработчиков
         {
+          interruptIndex = recIndex;
           scaleInterrupts[recIndex].scale = this;
-          attachInterrupt(digitalPinToInterrupt(clockPin),scaleInterrupts[recIndex].func,CHANGE);
+          attach();
           break;
         }
       } // for
@@ -202,63 +206,72 @@ void Scale::update()
         
           if(caliperDataReady) // данные готовы, быренько их копируем к себе
           {
-            noInterrupts();
-            int32_t thisData = dataToRead;
-            interrupts();
-            
             caliperDataReady = false;
-            lastDataReadyAt = millis(); // запоминаем, когда пришли последние данные
-
-            // в thisData у нас лежит битовый массив, который надо преобразовать в значение в сотых долях миллиметра
-            int32_t formattedData = 0;
-
-            // форматируем значение
-            for(uint8_t i=1;i<=20;i++) 
-            {                
-              formattedData +=  pow(2, i-1) * ( thisData & (1 << i) ? 1 : 0  );
-            }            
-
-            // знак лежит в 22-м бите
-            if(thisData & (1 << 21))
-              formattedData *= -1;
-
-            // остальные биты - нам пох, потому что линейка, которая у меня - выдаёт значение в сотых долях миллиметра, именно так мы и храним
             
-            bool hasChanges = (formattedData != rawData);
+           // noInterrupts();
+            int32_t thisData = dataToRead;
+            uint8_t thisBitNumber = caliperBitNumber;
+           // interrupts();
             
-            rawData = formattedData;
-
-            /*
-
-            #ifdef _DEBUG
-
-              String s;
-              for(uint8_t i=0;i<24;i++)
-              {
-                if(thisData & (1 << i))
-                  s += '1';
-                else
-                  s += '0';
-
-                s += ' ';
-              } // for
-              DBG(F("Scale data: "));
-              DBG(s);
-              DBG(F("; raw="));
-              DBG(thisData);
-              DBG(F("; formatted="));
-              DBGLN(formattedData);
-              
-            #endif // _DEBUG
-            */
-          
-            if(hasChanges) // были изменения, сигнализируем
+            
+            if(thisBitNumber == 0)
             {
-              Events.raise(this,EventScaleDataChanged,this);
-            }            
+              lastDataReadyAt = millis(); // запоминаем, когда пришли последние данные
+  
+              // в thisData у нас лежит битовый массив, который надо преобразовать в значение в сотых долях миллиметра
+              int32_t formattedData = 0;
+  
+              // форматируем значение
+              for(uint8_t i=1;i<=20;i++) 
+              {                
+                formattedData +=  pow(2, i-1) * ( thisData & (1 << i) ? 1 : 0  );
+              }            
+  
+              // знак лежит в 22-м бите
+              if(thisData & (1 << 21))
+                formattedData *= -1;
+  
+              // остальные биты - нам пох, потому что линейка, которая у меня - выдаёт значение в сотых долях миллиметра, именно так мы и храним
+              
+              bool hasChanges = (formattedData != rawData);
+              
+              rawData = formattedData;
+  
+              /*
+  
+              #ifdef _DEBUG
+  
+                String s;
+                for(uint8_t i=0;i<24;i++)
+                {
+                  if(thisData & (1 << i))
+                    s += '1';
+                  else
+                    s += '0';
+  
+                  s += ' ';
+                } // for
+                DBG(F("Scale data: "));
+                DBG(s);
+                DBG(F("; raw="));
+                DBG(thisData);
+                DBG(F("; formatted="));
+                DBGLN(formattedData);
+                
+              #endif // _DEBUG
+              */
+            
+              if(hasChanges) // были изменения, сигнализируем
+              {
+                Events.raise(this,EventScaleDataChanged,this);
+              }      
+
+            } // thisBitNumber == 0
             
           } // caliperDataReady
 
+          //TODO: ПРОВЕРИТЬ !!!
+          /*
           // а тут проверяем - если данных давно нет - сбрасываем
           if(millis() - lastDataReadyAt > SCALE_NO_DATA_TIMEOUT)
           {
@@ -269,6 +282,7 @@ void Scale::update()
             lastDataReadyAt = millis();
             Events.raise(this,EventScaleDataChanged,this);
           }
+          */
 
       }
       break; // PROTOCOL_CALIPER
@@ -361,7 +375,7 @@ void Scale::read()
 
     case PROTOCOL_CALIPER: // ЧТЕНИЕ ПРОТОКОЛА КИТАЙСКИХ ШТАНГЕНОВ - ИДЁТ ПО ФАКТУ ПРЕРЫВАНИЯ ПО СПАДУ ФРОНТА
     {
-        // NOP
+      // NOP
     }
     break; // PROTOCOL_CALIPER
     
@@ -457,7 +471,7 @@ void Scale::readBit_21BitProtocol(int32_t bitNum, bool isLastBit)
   }
 }
 //--------------------------------------------------------------------------------------------------------------------------------------
-ScaleFormattedData Scale::getData(MeasureMode mode, uint8_t multiplier)
+ScaleFormattedData Scale::getData(MeasureMode mode, uint8_t multiplier, int32_t substitutedValue)
 {
   ScaleFormattedData result;
   result.Value = NO_SCALE_DATA;
@@ -465,7 +479,7 @@ ScaleFormattedData Scale::getData(MeasureMode mode, uint8_t multiplier)
 
   if(hasData())
   {
-    int32_t temp = rawData;
+    int32_t temp = substitutedValue == NO_SCALE_DATA ? rawData : substitutedValue;
 
     if(isZeroFactorEnabled)
     {
@@ -606,16 +620,16 @@ void ScalesClass::setup()
 void ScalesClass::update()
 {
 
-    size_t cnt = data.size();
-    for(size_t i=0;i<cnt;i++)
-    {
-      data[i]->update();
-    }
+  size_t cnt = data.size();
+  for(size_t i=0;i<cnt;i++) // обновление китайских линеек
+  {
+    data[i]->update();
+  }
 
-  if(millis() - updateTimer > SCALES_UPDATE_INTERVAL)
+  if(millis() - updateTimer > SCALES_UPDATE_INTERVAL) 
   {
 
-    for(size_t i=0;i<cnt;i++)
+    for(size_t i=0;i<cnt;i++) // обновление протокода 21-бит
     {
       if(data[i]->isActive())
         data[i]->read();

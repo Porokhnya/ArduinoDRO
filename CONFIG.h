@@ -161,7 +161,7 @@
 #define X_ZERO_HARDWARE_BUTTON_PIN 8 // 47 // номер пина для железной кнопки "ZERO" для оси X
 #define X_ZERO_HARDWARE_BUTTON_TRIGGERED_LEVEL LOW // уровень срабатывания кнопки "ZERO" для оси X
 
-//#define USE_Y_SCALE // закомментировать, если не нужно использовать линейку по Y
+#define USE_Y_SCALE // закомментировать, если не нужно использовать линейку по Y
 #define Y_SCALE_TYPE 2 // тип линейки по Y: 1 - 21-битный протокол iGaging, 2 - протокол китайских штангенов (линейки Shahe с али)
 #define Y_SCALE_DATA_PIN 44 // номер пина DATA для линейки по Y
 #define Y_SCALE_CLOCK_PIN 45 // номер пина для строба линейки по Y

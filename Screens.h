@@ -47,6 +47,12 @@ typedef struct
 } RelabelQueueItem;
 #pragma pack(pop)
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+typedef struct
+{
+  Scale* scale;
+  int32_t scaleData;
+} ScaleDrawData;
+//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 class MainScreen : public AbstractHALScreen
 {
   public:
@@ -81,13 +87,14 @@ private:
     
     void drawGUI(HalDC* hal);
 
-    void drawAxisData(HalDC* hal, Scale* scale);
+    void drawAxisData(HalDC* hal, Scale* scale, int32_t scaleData);
 
 
     bool buttonsCreated;
     int xyzFontWidth, xyzFontHeight, screenWidth,screenHeight, xxlFontWidth, xxlFontHeight;
 
-    Vector<Scale*> wantsToDraw;
+    Vector<ScaleDrawData> wantsToDraw;
+    Vector<ScaleDrawData> scaleLastDrawedData;
     void addToDrawQueue(Scale* dt);
 
     #ifdef USE_MM_INCH_SWITCH

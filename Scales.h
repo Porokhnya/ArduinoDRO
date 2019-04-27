@@ -51,9 +51,10 @@ class Scale
     AxisKind getKind() { return kind; }
    
     const char* getLabel() { return label; }
+    uint8_t getType() { return scaleType; }
 
     bool hasData() { return active && (rawData != NO_SCALE_DATA); }
-    ScaleFormattedData getData(MeasureMode mode, uint8_t multiplier);
+    ScaleFormattedData getData(MeasureMode mode, uint8_t multiplier, int32_t substitutedValue = NO_SCALE_DATA);
     int32_t getRawData() { return rawData; }
 
     char getAxis() { return axis; }
@@ -98,12 +99,11 @@ class Scale
     static void int3();
     static void wantReadBit_CaliperProtocol(uint8_t recIndex);
 
-
     protected:
 
       friend class ScalesClass;
       void read();
-  
+            
   private:
 
       // 21-bit protocol related
@@ -114,11 +114,15 @@ class Scale
 
       // caliper protocol related
       void wantNextBit_CaliperProtocol();
-      uint8_t readNextBit_CaliperProtocol();
-      uint8_t caliperBitNumber;
-      bool caliperDataReady;
-      uint32_t lastCaliperHighTime;
-      uint32_t lastDataReadyAt;
+      void detach();
+      void attach();
+      
+      volatile uint8_t caliperBitNumber;
+      volatile bool caliperDataReady;
+      volatile uint32_t lastCaliperHighTime;
+      volatile uint32_t lastDataReadyAt;
+      volatile uint8_t interruptIndex;
+
   
     const char* label;
     const char* absButtonCaption;
@@ -136,7 +140,7 @@ class Scale
     bool isAbsFactorEnabled;
     int32_t absFactor;
     
-    int32_t rawData, dataToRead;
+    volatile int32_t rawData, dataToRead;
     uint8_t dataPin, clockPin, scaleType;
 
 

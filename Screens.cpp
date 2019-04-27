@@ -107,15 +107,19 @@ void MainScreen::onEvent(Event event, void* param)
  
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void MainScreen::addToDrawQueue(Scale* dt)
+void MainScreen::addToDrawQueue(Scale* scale)
 {
   size_t to = wantsToDraw.size();
   for(size_t i=0;i<to;i++)
   {
-    if(wantsToDraw[i] == dt)
+    if(wantsToDraw[i].scale == scale)
       return;
   }
 
+  ScaleDrawData dt; 
+  dt.scale = scale; 
+  dt.scaleData = scale->getRawData();
+  
   wantsToDraw.push_back(dt);
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -189,17 +193,41 @@ void MainScreen::doUpdate(HalDC* hal)
   size_t sz = wantsToDraw.size();
   if(sz)
   {
-    for(size_t i=0;i<sz;i++)
-    {
+      for(size_t i=0;i<sz;i++)
+      {
         if(wantRedrawDot)
-          drawDot(hal,wantsToDraw[i]);
+          drawDot(hal,wantsToDraw[i].scale);
           
-        drawAxisData(hal,wantsToDraw[i]);
-    }
-    wantsToDraw.empty();
-    wantRedrawDot = false;
-  }
+        drawAxisData(hal,wantsToDraw[i].scale,wantsToDraw[i].scaleData);
+      }
+      wantsToDraw.empty();
+      wantRedrawDot = false;
 
+  } // if(sz)
+
+  // проверяем на изменение значения у весов с последним отрисованным, при необходимости - перерисовываем
+  sz = scaleLastDrawedData.size();
+  for(size_t i=0;i<sz;i++)
+  {
+
+      Scale* scale = scaleLastDrawedData[i].scale;
+      int32_t scaleLastData = scaleLastDrawedData[i].scaleData;
+      int32_t scaleNowData = scale->getRawData();
+      
+      if(scaleNowData != scaleLastData)
+      {
+        ScaleDrawData needRedrawRecord;
+        needRedrawRecord.scale = scale;
+        needRedrawRecord.scaleData = scaleNowData;
+        
+        wantsToDraw.push_back(needRedrawRecord);
+        
+      //  DBG(F("CATCHED CHANGES AT AXIS "));
+      //  DBGLN(scaleLastDrawedData[i].scale->getAxis());
+      }
+  }
+  scaleLastDrawedData.empty();
+  
     // проверяем экранные кнопки
     int clicked_button = buttons->checkButtons(ButtonPressed);
     if(clicked_button != -1)
@@ -463,8 +491,12 @@ void MainScreen::switchABS(Scale* scale)
   relabelQueue.push_back(qi);
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
+void MainScreen::drawAxisData(HalDC* hal, Scale* scale, int32_t scaleData)
 {
+  ScaleDrawData dt; dt.scale = scale;
+  dt.scaleData = scaleData;
+  scaleLastDrawedData.push_back(dt);
+  
   #if defined(_DEBUG) && defined(DEBUG_COMPUTE_DRAW_TIME)
     uint32_t startTime = millis();
   #endif
@@ -479,7 +511,7 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
   hal->setBackColor(SCREEN_BACK_COLOR);
   hal->setFont(XYZFont);
 
-  if(!scale->hasData())
+  if(scaleData == NO_SCALE_DATA)
   {
 
     // нет данных с датчика
@@ -523,7 +555,7 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
     hal->setColor(AXIS_FRACT_VALUE_COLOR);
     hal->setFont(SevenSeg_XXXL_Num);
     
-    ScaleFormattedData scaleData = scale->getData(measureMode, getMultiplier(scale));
+    ScaleFormattedData formattedData = scale->getData(measureMode, getMultiplier(scale), scaleData);
     static char curDigit[2] = {0};
 
     // выводим показания с датчика
@@ -542,9 +574,9 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
     for(int i=0;i<countOfFractDigits;i++)
     {
       char lastDigit = scale->FILLED_CHARS[fractPos];
-      uint32_t fractVal = scaleData.Fract/fractDelimiter % 10;
+      uint32_t fractVal = formattedData.Fract/fractDelimiter % 10;
       
-      scaleData.Fract -= fractVal*fractDelimiter;
+      formattedData.Fract -= fractVal*fractDelimiter;
       fractDelimiter /= 10;
 
       curDigit[0] = fractVal + '0';
@@ -577,10 +609,10 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
         
     int32_t delimiter = 1;    
     int digitPos = sizeof(scale->FILLED_CHARS) - (countOfFractDigits+1); // указатель на текущий разряд
-    uint32_t absVal = abs(scaleData.Value);
+    uint32_t absVal = abs(formattedData.Value);
 
     // определяем разрядность числа
-    int countDigits = scaleData.Value == 0 ? 1 : 0;
+    int countDigits = formattedData.Value == 0 ? 1 : 0;
     uint32_t valCpy = absVal;
     while(valCpy != 0)
     {
@@ -614,7 +646,7 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
     
 
     // прошли по всем цифрам, теперь смотрим, не надо ли нарисовать минус
-    if(scaleData.Value < 0)
+    if(formattedData.Value < 0)
     {
       axisX -= xyzFontWidth;
       
@@ -652,6 +684,7 @@ void MainScreen::drawAxisData(HalDC* hal, Scale* scale)
   hal->setFont(oldFont);
   hal->setColor(oldColor);
   hal->setBackColor(oldBackColor);
+
 
   #if defined(_DEBUG) && defined(DEBUG_COMPUTE_DRAW_TIME)
     uint32_t elapsed = millis() - startTime;
